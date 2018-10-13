@@ -24,7 +24,10 @@ insert_spaces_instead_of_tabs = False
 draw_spaces = 2
 # An *available* system font.
 font = "Ubuntu mono 12"
-
+# Don't show these extension into filebrowser sidepan
+ignore = [ ".pyc", ".o", ".a", ".so", ".rar", ".zip", ".gz", ".xz", ".bz", ".txz", ".tgz" ]
+# oredered sidepane, directories first
+dirs_first = True
 # ======================================================
 # GTK Sourceview
 # Syntax highlight using the nice sourceview's schemes.
@@ -51,3 +54,7 @@ window_sidepane = True
 window_console = False
 
 # window gutter
+
+# futur
+#use theme icon into sidepane
+icon_theme = False
