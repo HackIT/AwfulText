@@ -1,8 +1,8 @@
 import pygtk
 pygtk.require('2.0')
-import gtk, config, tools
+import gtk, config
 
-from dialog import About
+from dialog import About, ColorDial
 
 # File                View                              Tools                    Help
 #   | ---> NewFile      | ---> Show menubar               | ---> build             | ---> about
@@ -19,9 +19,6 @@ from dialog import About
 class Menubar( gtk.MenuBar ):
     def __init__( self, gtkWindow ):
         super( Menubar, self ).__init__()
-
-        accelGroup = gtk.AccelGroup()
-        gtkWindow.add_accel_group( accelGroup )
 
         # type:
         # 0 == gtk.MenuItem
@@ -138,7 +135,7 @@ class Menubar( gtk.MenuBar ):
                     'type':0,
                     'label':'ColorPicker',
                     'binding':'<Control>F',
-                    'activate':tools.ColorDial
+                    'activate':ColorDial
                 }
             ]},
             {
@@ -175,12 +172,13 @@ class Menubar( gtk.MenuBar ):
 
                 if n['type'] == 1: # gtk.ImageMenuItem
                     if n['stockId']:
-                        menu_item = gtk.ImageMenuItem( n['stockId'], accelGroup )
+                        menu_item = gtk.ImageMenuItem( n['stockId'] )
                         menu_item.set_label(n['label'])
                         if n['binding']:
+                            menu_item.set_accel_group(gtkWindow.accelGroup)
                             key, mod = gtk.accelerator_parse( n['binding'] )
                             menu_item.add_accelerator( "activate",
-                                accelGroup, key, mod, gtk.ACCEL_VISIBLE
+                                gtkWindow.accelGroup, key, mod, gtk.ACCEL_VISIBLE
                             )
                         if n['activate']:
                             menu_item.connect('activate', n['activate'])
@@ -192,7 +190,7 @@ class Menubar( gtk.MenuBar ):
                     if n['binding']:
                         key, mod = gtk.accelerator_parse( n['binding'] )
                         menu_item.add_accelerator( "activate",
-                            accelGroup, key, mod, gtk.ACCEL_VISIBLE
+                            gtkWindow.accelGroup, key, mod, gtk.ACCEL_VISIBLE
                         )
                     if n['activate']:
                         menu_item.connect('activate', n['activate'])
