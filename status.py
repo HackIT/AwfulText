@@ -27,19 +27,19 @@ class Statusbar( gtk.HBox ):
         indentSpaces.connect( "activate", gtkWindow.view.indentWithSpaces )
 
         incrTabWidth = gtk.MenuItem( "Increase" )
-        incrTabWidth.connect( "activate", gtkWindow.view.incrIndentWidth )
+        incrTabWidth.connect( "activate", gtkWindow.view.incrIndentWidth, gtkWindow )
 
         gtkWindow.tabWidth = gtk.MenuItem( "Tab: "+str( gtkWindow.view.tabw ) )
         #tabWidth.connect("activate", self.)
 
         decrTabWidth = gtk.MenuItem( "Decrease" )
-        decrTabWidth.connect( "activate", gtkWindow.view.decrIndentWidth )
+        decrTabWidth.connect( "activate", gtkWindow.view.decrIndentWidth, gtkWindow )
 
         tabsToSpaces = gtk.MenuItem( "Convert tabs to spaces" )
-        tabsToSpaces.connect( "activate", exit )
+        tabsToSpaces.connect( "activate", gtkWindow.buffer.tabsToSpaces, gtkWindow.view.tabw )
 
         spacesToTabs = gtk.MenuItem( "Convert spaces to tabs" )
-        spacesToTabs.connect( "activate", exit )
+        spacesToTabs.connect( "activate", gtkWindow.buffer.spacesToTabs, gtkWindow.view.tabw )
 
         subMenuSpaces.append( drawSpaces )
         subMenuSpaces.append( indentOnTab )
