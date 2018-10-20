@@ -13,17 +13,37 @@ def dbg(*vars):
         #    else:
         #        var.window.set_cursor( gtk.gdk.Cursor( gtk.gdk.XTERM ) )
 
+class StyleSchemeManager( gtksourceview2.StyleSchemeManager ):
+    def __init__(self):
+        super( StyleSchemeManager, self ).__init__()
+
+class LanguageManager( gtksourceview2.LanguageManager ):
+    def __init__(self):
+        super( LanguageManager, self ).__init__()
+
 class Buffer( gtksourceview2.Buffer ):
     def __init__( self ):
         super( Buffer, self ).__init__()
         self.set_highlight_syntax( config.highlight_syntax )
         self.set_highlight_matching_brackets( config.highlight_matching_brackets )
 
-        scheme = gtksourceview2.StyleSchemeManager()
+        scheme = StyleSchemeManager()
         #style = scheme.get_scheme( config.scheme )
         self.set_style_scheme( scheme.get_scheme( config.scheme ) )
-        lm = gtksourceview2.LanguageManager()
+        lm = LanguageManager()
         self.set_data( "languages-manager", lm )
+
+    def tabsToSpaces(self, menuItem, tabWidth):
+        fmt = "%."+str(tabWidth)+"s"
+        tab = fmt % "        "
+        text = self.get_text(self.get_start_iter(), self.get_end_iter())
+        self.set_text(text.replace("\t", tab))
+
+    def spacesToTabs(self, menuItem, tabWidth):
+        fmt = "%."+str(tabWidth)+"s"
+        tab = fmt % "        "
+        text = self.get_text(self.get_start_iter(), self.get_end_iter())
+        self.set_text(text.replace(tab, "\t"))
 
     def update_cursor_position(self, view):
         #tabwidth = view.get_tab_width()
@@ -55,41 +75,56 @@ class Buffer( gtksourceview2.Buffer ):
         self.set_modified( False )
         self.place_cursor( self.get_start_iter() )
 
-    def openFile(self, ImageMenuItem):
-        dialog = OpenFileDialog()
-        dialog.set_default_response( gtk.RESPONSE_OK )
-        
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            filename = dialog.get_filename()
-            if filename:
-                manager = self.get_data('languages-manager')
-                if os.path.isabs(filename):
-                    path = filename
-                else:
-                    path = os.path.abspath(filename)
-                language = manager.guess_language(filename)
-                self.begin_not_undoable_action()
-                try:
-                    txt = open(path).read()
-                except:
-                    return False
-                
+    def showFile(self, filename):
+        if filename:
+            #for i in gtk.gdk.pixbuf_get_formats():
+            #    for n in i['extensions']:
+            #        if re.search(n+'$', filename):
+            #            gdkImage = gtk.gdk.pixbuf_new_from_file(filename)
+            #            gtkImage = gtk.Image()
+            #            gtkImage.set_from_pixbuf(gdkImage)
+            #            
+            manager = self.get_data('languages-manager')
+            if os.path.isabs(filename):
+                path = filename
+            else:
+                path = os.path.abspath(filename)
+            language = manager.guess_language(filename)
+            self.begin_not_undoable_action()
+            try:
+                txt = open(path, "r")
+                data = txt.read()
+                txt.close()
+            except:
+                return False
+            
             if language:
                 self.set_highlight_syntax(True)
                 self.set_language(language)
             else:
                 print 'No language found for file "%s"' % filename
                 self.set_highlight_syntax(False)
-            self.set_text(txt)
+
+            self.set_text(data)
             self.set_data('filename', path)
             self.end_not_undoable_action()
-    
             self.set_modified(False)
             self.place_cursor(self.get_start_iter())
-        dialog.destroy()
 
-    def save_as(self, ImageMenuItem):
+    def openFile(self, ImageMenuItem):
+        dialog = OpenFileDialog()
+        dialog.set_default_response( gtk.RESPONSE_CANCEL )
+        
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            filename = dialog.get_filename()
+            dialog.destroy()
+            if filename:
+                self.showFile(filename)
+        else:
+            dialog.destroy()
+
+    def saveAs(self, ImageMenuItem):
         dialog = SaveFileDialog()
         dialog.set_default_response( gtk.RESPONSE_OK )
         
@@ -107,6 +142,7 @@ class Buffer( gtksourceview2.Buffer ):
 
         if response == gtk.RESPONSE_OK:
             self.filename = dialog.get_filename()
+            dialog.destroy()
             print "Saved file: " + self.filename
             #index = self.filename.replace("\\","/").rfind("/") + 1
             text = self.get_text(self.get_start_iter() , self.get_end_iter())
@@ -176,7 +212,7 @@ class View( gtksourceview2.View ):
             self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE|gtksourceview2.DRAW_SPACES_TAB )
         else:
             self.set_draw_spaces( 0 )
-
+        
         #flags >>= gtksourceview2.DRAW_SPACES_SPACE
         #print bin(flags)
         #print bin(gtksourceview2.DRAW_SPACES_TAB)
@@ -226,21 +262,18 @@ class View( gtksourceview2.View ):
         else:
             self.set_insert_spaces_instead_of_tabs( False )
 
-    def incrIndentWidth(self, menuItem):
+    def incrIndentWidth(self, menuItem, gtkWindow):
+        tabWidth = gtkWindow.tabWidth
         self.tabw += 1
-        self.setIndentWidth()
+        self.setIndentWidth(tabWidth)
 
-    def setIndentWidth(self):
+    def setIndentWidth(self, tabWidth):
         self.set_indent_width(self.tabw)
-        self.tabWidth.set_label("Tab: "+str(self.tabw))
+        tabWidth.set_label("Tab: "+str(self.tabw))
 
-    def decrIndentWidth(self, menuItem):
+    def decrIndentWidth(self, menuItem, gtkWindow):
+        tabWidth = gtkWindow.tabWidth
         self.tabw -= 1
-        self.setIndentWidth()
+        self.setIndentWidth(tabWidth)
 
-#class Textview(object):
-#    """docstring for Textview"""
-#    def __init__(self, arg):
-#        super(Textview, self).__init__()
-#        self.arg = arg
-#        
+
