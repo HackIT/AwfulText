@@ -1,5 +1,6 @@
-import pygtk
-pygtk.require('2.0')
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import gtk, pango, gtksourceview2, os
 import config
 from dialog import SaveFileDialog, OpenFileDialog
@@ -22,17 +23,6 @@ class LanguageManager( gtksourceview2.LanguageManager ):
         super( LanguageManager, self ).__init__()
 
 class Buffer( gtksourceview2.Buffer ):
-    def __init__( self ):
-        super( Buffer, self ).__init__()
-        self.set_highlight_syntax( config.highlight_syntax )
-        self.set_highlight_matching_brackets( config.highlight_matching_brackets )
-
-        scheme = StyleSchemeManager()
-        #style = scheme.get_scheme( config.scheme )
-        self.set_style_scheme( scheme.get_scheme( config.scheme ) )
-        lm = LanguageManager()
-        self.set_data( "languages-manager", lm )
-
     def tabsToSpaces(self, menuItem, tabWidth):
         fmt = "%."+str(tabWidth)+"s"
         tab = fmt % "        "
@@ -70,13 +60,19 @@ class Buffer( gtksourceview2.Buffer ):
         #self.statusbar.push(1, 'Line: %d, Column: %d, Chars: %d' % (row, col, nchars))
         #pos_label.set_text('char: %d, line: %d, column: %d' % (nchars, row, col+1))
 
-    def newFile(self, ImageMenuItem):
+    def newFile(self):
         self.set_text( "" )
         self.set_modified( False )
         self.place_cursor( self.get_start_iter() )
-
+#
     def showFile(self, filename):
         if filename:
+            if os.path.isdir(filename):
+            #    self.set_text("")
+            #    self.set_modified( False )
+                self.place_cursor( self.get_start_iter() )
+                self.set_data('fullpath', filename)
+                return
             #for i in gtk.gdk.pixbuf_get_formats():
             #    for n in i['extensions']:
             #        if re.search(n+'$', filename):
@@ -84,12 +80,12 @@ class Buffer( gtksourceview2.Buffer ):
             #            gtkImage = gtk.Image()
             #            gtkImage.set_from_pixbuf(gdkImage)
             #            
-            manager = self.get_data('languages-manager')
+            # self.language_manager
             if os.path.isabs(filename):
                 path = filename
-            else:
-                path = os.path.abspath(filename)
-            language = manager.guess_language(filename)
+            #else:
+            #    path = os.path.abspath(filename)
+            language = self.language_manager.guess_language(filename)
             self.begin_not_undoable_action()
             try:
                 txt = open(path, "r")
@@ -106,25 +102,12 @@ class Buffer( gtksourceview2.Buffer ):
                 self.set_highlight_syntax(False)
 
             self.set_text(data)
-            self.set_data('filename', path)
             self.end_not_undoable_action()
             self.set_modified(False)
+            self.set_data('fullpath', path)
             self.place_cursor(self.get_start_iter())
 
-    def openFile(self, ImageMenuItem):
-        dialog = OpenFileDialog()
-        dialog.set_default_response( gtk.RESPONSE_CANCEL )
-        
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            filename = dialog.get_filename()
-            dialog.destroy()
-            if filename:
-                self.showFile(filename)
-        else:
-            dialog.destroy()
-
-    def saveAs(self, ImageMenuItem):
+    def saveAs(self):
         dialog = SaveFileDialog()
         dialog.set_default_response( gtk.RESPONSE_OK )
         
@@ -143,22 +126,19 @@ class Buffer( gtksourceview2.Buffer ):
         if response == gtk.RESPONSE_OK:
             self.filename = dialog.get_filename()
             dialog.destroy()
-            print "Saved file: " + self.filename
-            #index = self.filename.replace("\\","/").rfind("/") + 1
             text = self.get_text(self.get_start_iter() , self.get_end_iter())
-            #gtkWindow.set_title(self.filename[index:] + " - PyPad")
             file = open(self.filename, "w")
             file.write(text)
             file.close()
             self.set_modified(False)
+            print "Saved file: " + self.filename
         dialog.destroy()
 
-    def save(self, data=None):
-        self.filename = self.get_data('filename')
+    def save(self):
+        self.filename = self.get_data('fullpath')
         if self.filename == "":
             self.save_as()
             return
-        # self = self.textview.get_buffer()
         print "Saved file: " + self.filename
         text = self.get_text(self.get_start_iter() , self.get_end_iter())
         file = open(self.filename, "w")
@@ -166,45 +146,17 @@ class Buffer( gtksourceview2.Buffer ):
         file.close()
         self.set_modified(False)
 
+    def __init__( self ):
+        super( Buffer, self ).__init__()
+        self.set_highlight_syntax( config.highlight_syntax )
+        self.set_highlight_matching_brackets( config.highlight_matching_brackets )
+
+        scheme = StyleSchemeManager()
+        #style = scheme.get_scheme( config.scheme )
+        self.set_style_scheme( scheme.get_scheme( config.scheme ) )
+        self.language_manager = LanguageManager()
 
 class View( gtksourceview2.View ):
-    def __init__( self, Buffer ):
-        super( View, self ).__init__()
-        self.tabw = config.tab_width
-        self.set_indent_width( self.tabw )
-        self.set_buffer( Buffer )
-        self.set_left_margin( 5 )
-        self.set_right_margin( 5 )
-        self.set_highlight_current_line( config.highlight_current_line )
-        self.set_show_line_numbers( config.show_line_numbers )
-        self.set_indent_on_tab( config.indent_on_tab )
-        self.set_auto_indent( config.auto_indent )
-        self.set_right_margin_position( config.right_margin_position )
-        self.set_show_right_margin( config.show_right_margin )
-        self.set_insert_spaces_instead_of_tabs( config.insert_spaces_instead_of_tabs )
-        if config.draw_spaces == 0:
-            self.set_draw_spaces( 0 )
-        elif config.draw_spaces == 1:
-            self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE )
-        else:
-            self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE|gtksourceview2.DRAW_SPACES_TAB )
-        #self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE|gtksourceview2.DRAW_SPACES_TAB )
-        # self.View.set_show_line_marks(True)
-        #Buffer.connect( 'changed', Buffer.update_cursor_position, self )
-        # self.View.set_mark_category_background("lal", gtk.gdk.color_parse("#ff0000"))
-        self.fontdesc = pango.FontDescription( config.font )
-        self.modify_font( self.fontdesc )
-
-        #self.connect( "motion-notify-event", dbg )
-        self.connect( "button-press-event", dbg )
-        self.gtkSourceGutter = self.get_gutter( gtk.TEXT_WINDOW_LEFT )
-
-        #self.gtkSourceGutterView = self.gtkSourceGutter.get_property("view")
-        #gtkSourceGutterView.connect( "motion-notify-event", self.dbg )
-
-        # A button has been clicked.
-        self.gtkSourceGutter.connect( "cell-activated", dbg )
-
     def toggleDrawInvisibleCharacters(self, menuItem):
         flags = self.get_draw_spaces()
         print menuItem.active
@@ -276,4 +228,40 @@ class View( gtksourceview2.View ):
         self.tabw -= 1
         self.setIndentWidth(tabWidth)
 
+    def __init__( self, Buffer ):
+        super( View, self ).__init__()
+        self.tabw = config.tab_width
+        self.set_indent_width( self.tabw )
+        self.set_buffer( Buffer )
+        self.set_left_margin( 5 )
+        self.set_right_margin( 5 )
+        self.set_highlight_current_line( config.highlight_current_line )
+        self.set_show_line_numbers( config.show_line_numbers )
+        self.set_indent_on_tab( config.indent_on_tab )
+        self.set_auto_indent( config.auto_indent )
+        self.set_right_margin_position( config.right_margin_position )
+        self.set_show_right_margin( config.show_right_margin )
+        self.set_insert_spaces_instead_of_tabs( config.insert_spaces_instead_of_tabs )
+        if config.draw_spaces == 0:
+            self.set_draw_spaces( 0 )
+        elif config.draw_spaces == 1:
+            self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE )
+        else:
+            self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE|gtksourceview2.DRAW_SPACES_TAB )
+        #self.set_draw_spaces( gtksourceview2.DRAW_SPACES_SPACE|gtksourceview2.DRAW_SPACES_TAB )
+        # self.View.set_show_line_marks(True)
+        #Buffer.connect( 'changed', Buffer.update_cursor_position, self )
+        # self.View.set_mark_category_background("lal", gtk.gdk.color_parse("#ff0000"))
+        self.fontdesc = pango.FontDescription( config.font )
+        self.modify_font( self.fontdesc )
+
+        #self.connect( "motion-notify-event", dbg )
+        self.connect( "button-press-event", dbg )
+        self.gtkSourceGutter = self.get_gutter( gtk.TEXT_WINDOW_LEFT )
+
+        #self.gtkSourceGutterView = self.gtkSourceGutter.get_property("view")
+        #gtkSourceGutterView.connect( "motion-notify-event", self.dbg )
+
+        # A button has been clicked.
+        self.gtkSourceGutter.connect( "cell-activated", dbg )
 

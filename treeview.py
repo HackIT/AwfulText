@@ -1,9 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-import pygtk
-pygtk.require('2.0')
 import gtk, os, stat, gobject, pango, re, config, time, gio, glib
-from dialog import OpenFolderDialog
+from dialog import OpenFolderDialog, NewFileEntry
 
 #gtk.STOCK_FILE gtk.STOCK_DIRECTORY gtk.STOCK_GO_FORWARD
 #    def make_pb(self, tvcolumn, cell, model, iter):
@@ -25,12 +24,12 @@ crossxpm = [
     "@@@@@@@@@@@",
     "@@@.@@@.@@@",
     "@@...@...@@",
-    "@@,.....,@@",
-    "@@@,...,@@@",
+    "@@.......@@",
     "@@@.....@@@",
-    "@@...,...@@",
-    "@@,.,@,.,@@",
-    "@@@,@@@,@@@",
+    "@@@.....@@@",
+    "@@.......@@",
+    "@@...@...@@",
+    "@@@.@@@.@@@",
     "@@@@@@@@@@@",
     "@@@@@@@@@@@"
     ]
@@ -80,6 +79,12 @@ filexpm = [
 class TreeView( gtk.TreeView ):
     def __init__(self, treeModel):
         super( TreeView, self ).__init__(treeModel)
+        self.set_headers_visible(False)
+        self.set_enable_search(False)
+        # disable FOCUS selection
+        self.unset_flags(gtk.CAN_FOCUS)
+        self.selection = self.get_selection()
+        self.selection.set_mode(gtk.SELECTION_SINGLE)
 
 class TreeStore( gtk.TreeStore ):
     def __init__(self):
@@ -96,10 +101,15 @@ class TreeViewColumn( gtk.TreeViewColumn ):
 class CellRendererPixbuf( gtk.CellRendererPixbuf ):
     def __init__(self):
         super( CellRendererPixbuf, self ).__init__()
+        self.props.mode = gtk.CELL_RENDERER_MODE_INERT
+        self.props.sensitive = True
 
 class CellRendererText( gtk.CellRendererText ):
     def __init__(self):
         super( CellRendererText, self ).__init__()
+        self.props.mode = gtk.CELL_RENDERER_MODE_INERT
+        self.props.sensitive = True
+        self.props.weight = pango.WEIGHT_NORMAL
 
 class Menu( gtk.Menu ):
     def __init__(self):
@@ -112,19 +122,12 @@ class MenuItem( gtk.MenuItem ):
 
 class FileBrowser( gtk.VBox ):
     store = [] # treeStore's (iterPath, filePath)
-    headers = [(0,)] # keep track of growing openfile list and put OPEN FOLDER header at end of it.
     openedFolders = [] # to make life easier when looking for file...
+    openedFiles = []
     monitoredFolders = [] # glib's monitoring storage... doesn't work without storing it.
     file_monitor_changed_type = None
 
 # glib inotify monitoring
-    def monitor(self, directory):
-        directory = gio.File(directory)
-        monitoredDir = directory.monitor_directory()
-        monitoredDir.set_rate_limit(0)
-        monitoredDir.connect("changed", self.monitorEvent)
-        self.monitoredFolders.append(monitoredDir)
-
     # gio.FILE_MONITOR_EVENT_ATTRIBUTE_CHANGED
     # gio.FILE_MONITOR_EVENT_CHANGED
     # gio.FILE_MONITOR_EVENT_CHANGES_DONE_HINT
@@ -137,67 +140,67 @@ class FileBrowser( gtk.VBox ):
     # gio.FILE_MONITOR_SEND_MOVED
     # gio.FILE_MONITOR_WATCH_HARD_LINKS
     # gio.FILE_MONITOR_WATCH_MOUNTS
+    def monitor(self, directory):
+        directory = gio.File(directory)
+        monitoredDir = directory.monitor_directory()
+        monitoredDir.set_rate_limit(0)
+        monitoredDir.set_data("path", directory)
+        monitoredDir.connect("changed", self.monitorEvent)
+        self.monitoredFolders.append(monitoredDir)
+        print self.monitoredFolders.__len__(), monitoredDir.get_data("path").get_path()
+
     def monitorEvent(self, dirMon, fileMon, event, monitorEvent):
         if monitorEvent == gio.FILE_MONITOR_EVENT_CREATED:
             self.file_monitor_changed_type = gio.FILE_MONITOR_EVENT_CREATED
+            # root tree
+            treepath = self.storeLook(dirMon.get_data("path").get_path())
+            if os.path.isdir(fileMon.get_path()):
+                tpath = self.treeStore.append(treepath, [self.folder_pixbuf, os.path.basename(fileMon.get_path())])
+            else:
+                tpath = self.treeStore.append(treepath, [self.file_pixbuf, os.path.basename(fileMon.get_path())])
+            self.store.append( (tpath, fileMon.get_path()) )
         elif monitorEvent == gio.FILE_MONITOR_EVENT_DELETED:
             tpath = self.storeLook(fileMon.get_path())
             if self.treeStore.iter_is_valid(tpath):
                 self.treeStore.remove(tpath)
+                #print self.treeStore.get_path(tpath), self.treeStore.get_value(tpath, 1)
         elif monitorEvent == gio.FILE_MONITOR_EVENT_CHANGED:
             self.file_monitor_changed_type = gio.FILE_MONITOR_EVENT_CHANGED
         elif monitorEvent == gio.FILE_MONITOR_EVENT_CHANGES_DONE_HINT:
-            # this is last call for moving/creating file, proceed here, clean...
-            #if self.file_monitor_changed_type == gio.FILE_MONITOR_EVENT_CREATED:
-                # add file to treeview
-            #elif self.file_monitor_changed_type == gio.FILE_MONITOR_EVENT_CHANGED:
-                # 
+            # this seemed like the last call for moving/creating file, but afaik
             self.file_monitor_changed_type = None
-        print dirMon, fileMon.get_path()
+        print dirMon, fileMon.get_path(), monitorEvent
+
+    def disableDirMonitor(self, filepath):
+        for i in self.monitoredFolders:
+            if filepath == i.get_data("path").get_path():
+                i.cancel()
+                ret = i.is_cancelled()
+                self.monitoredFolders.remove(i)
+        return None
 
     def storeLook(self, filepath):
         for n in self.store:
             if filepath in n:
                 return n[0]
 
-
 # treeview cell properties
     def propertiesIcon(self, column, cell, liststore, iter):
-        cell.props.mode = gtk.CELL_RENDERER_MODE_ACTIVATABLE
-        cell.props.sensitive = True
-        # for cells that acts as hearders
-        for head in self.headers:
-            if liststore.get_path(iter) == head:
-                cell.set_property("visible", False)
-                return
         cell.set_property("visible", True)
         cell.set_property("pixbuf", self.delete_pixbuf)
 
     def propertiesText(self, column, cell, liststore, iter):
-        value = liststore[iter]
-        # default cell layout style
-        cell.props.mode = gtk.CELL_RENDERER_MODE_ACTIVATABLE
-        cell.props.sensitive = True
+        # value = liststore[iter]
         cell.props.weight = pango.WEIGHT_NORMAL
-        # for cells that acts as hearders
-        for head in self.headers:
-            if liststore.get_path(iter) == head:
-                cell.props.mode = gtk.CELL_RENDERER_MODE_INERT
-                #cell.props.sensitive = False
-                cell.props.weight = pango.WEIGHT_BOLD
-
 
 # treeview selection callbacks
     def onSelectListStore(self, path, listSelection):
-        # disable highlight in liststore headers
-        for head in self.headers:
-            if path == head:
-                return False
         return True
 
-    def onSelectTreeStore(self, path, treeSelection):
+    def onSelectTreeStore(self, path):
         # disable highlight dirs
-        if self.treeStore.iter_has_child(self.treeStore.get_iter(path)):
+        filepath = self.reversePathFromIter(self.treeStore.get_iter(path))
+        if os.path.isdir(filepath):
             return False
         return True
 
@@ -221,102 +224,130 @@ class FileBrowser( gtk.VBox ):
             if not os.path.isdir(filepath) and not os.path.isfile(filepath):
                 for v in self.openedFolders:
                     if os.path.isfile(v+filepath):
-                        self.Window.buffer.showFile(v+filepath)
+                        self.Window._openFile(v+filepath)
         return
 
-# openig files
+    def listInsert(self,filename):
+        if filename:
+            self.listStore.append([None, os.path.basename(filename)])
+
+# opening/adding files
     def renderFolder(self, folder):
         def exclude(filename):
             for i in config.ignore:
                 if re.search('\\'+i+'$', filename):
                     return False
             return True
-
-        if folder:
-            if len(self.headers) < 2:
-                self.headers.append( self.listStore.get_path( self.listStore.append([None, 'FOLDERS']) ) )
-            self.openedFolders.append(folder)
-            self.monitor(folder)
-            files = [f for f in os.listdir(folder) if f[0] <> '.']
-            nextpath = []
-            if files:
-                for f in files:
-                    fpath = os.path.join(folder, f)
+        if folder and folder in self.openedFolders:
+            return
+        self.openedFolders.append(folder)
+        self.monitor(folder)
+        files = [f for f in os.listdir(folder)] # if f[0] <> '.'
+        nextpath = []
+        if files:
+            for f in files:
+                fpath = os.path.join(folder, f)
+                if os.path.isdir(fpath):
+                    self.monitor(fpath)
+                    self.openedFolders.append(fpath)
+                    tpath = self.treeStore.append(None, [self.folder_pixbuf, f])
+                    nextpath.append( (tpath, fpath) )
+                    self.store.append( (tpath, fpath) )
+                else:
+                    if exclude(f):
+                        tpath = self.treeStore.append(None, [self.file_pixbuf, f])
+                        self.store.append( (tpath, fpath) )
+            while nextpath:
+                c = nextpath.pop(0)
+                for s in os.listdir(c[1]):
+                    fpath = os.path.join(c[1], s)
                     if os.path.isdir(fpath):
                         self.monitor(fpath)
                         self.openedFolders.append(fpath)
-                        tpath = self.treeStore.append(None, [self.folder_pixbuf, f])
+                        tpath = self.treeStore.append(c[0], [self.folder_pixbuf,s])
                         nextpath.append( (tpath, fpath) )
                         self.store.append( (tpath, fpath) )
                     else:
-                        if exclude(f):
-                            tpath = self.treeStore.append(None, [self.file_pixbuf, f])
+                        if exclude(s):
+                            tpath = self.treeStore.append(c[0], [self.file_pixbuf, s])
                             self.store.append( (tpath, fpath) )
-                while nextpath:
-                    c = nextpath.pop(0)
-                    for s in os.listdir(c[1]):
-                        fpath = os.path.join(c[1], s)
-                        if os.path.isdir( fpath ):
-                            self.monitor(fpath)
-                            self.openedFolders.append(fpath)
-                            tpath = self.treeStore.append(c[0], [self.folder_pixbuf,s])
-                            nextpath.append( (tpath, fpath) )
-                            self.store.append( (tpath, fpath) )
-                        else:
-                            if exclude(s):
-                                tpath = self.treeStore.append(c[0], [self.file_pixbuf, s])
-                                self.store.append( (tpath, fpath) )
-            print self.openedFolders.__len__(), "\n", self.monitoredFolders.__len__(), self.store.__len__()
+        print self.openedFolders.__len__(), self.monitoredFolders.__len__(), self.store.__len__()
 
-    def addFolder(self, ImageMenuItem=None):
-        dialog = OpenFolderDialog()
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            filename = dialog.get_filename()
-            dialog.destroy()
-            if filename:
-                self.renderFolder(filename)
-        else:
-            dialog.destroy()
-
-    def openFolder(self, ImageMenuItem):
+    def clearTreeStore(self):
         self.treeStore.clear()
-        self.addFolder()
+        while self.openedFolders:
+            dirmonitor = self.openedFolders.pop()
+            self.disableDirMonitor(dirmonitor)
+            self.store = []
+        #self.addFolder()
 
-# menu callback
-    def newFileSelection(self, menuItem, path):
-        # check for folder and file
+# menus callback
+    def newFileSelection(self, treeView, path):
         print self, treeView, path
         if path:
-            iter = self.listStore.get_iter(path)
-            if self.listStore.iter_is_valid(iter):
-                self.listStore.remove(iter)
+            iter = self.treeStore.get_iter(path)
+            if self.treeStore.iter_is_valid(iter):
+                filepath = self.reversePathFromIter(iter)
+                print self.openedFolders, filepath
+                # CHECKKKKKKKKKKKKKK
+                self.Window._openFile(self, filepath)
+                # just open new file to buffer...
+                # also store path for ez saving from where it's meant
+                #NewFileEntry()
+                #if os.path.isdir(filepath):
+                #    open()
 
     def newFolderSelection(self, menuItem, path):
-        # check for folder and file
-        print self, treeView, path
+        print self, menuItem, path
         if path:
             iter = self.listStore.get_iter(path)
             if self.listStore.iter_is_valid(iter):
                 self.listStore.remove(iter)
 
     def renameSelection(self, menuItem, path):
-        # check for folder and file
-        print self, treeView, path
+        print self, menuItem, path
         if path:
             iter = self.listStore.get_iter(path)
             if self.listStore.iter_is_valid(iter):
                 self.listStore.remove(iter)
 
     def deleteSelection(self, menuItem, path):
-        # check for folder and file
-        print self, menuItem, path
+        # deleting from tree
+        #print self, menuItem, path
+        dirs = []
+        delete = []
         if path:
             iter = self.treeStore.get_iter(path)
             if self.treeStore.iter_is_valid(iter):
-                filepath = self.reversePath(iter)
+                filepath = self.reversePathFromIter(iter)
+                self.disableDirMonitor(filepath)
                 if os.path.isdir(filepath):
-                    os.removedirs(filepath)
+                    delete.append(filepath)
+                    if self.treeStore.iter_has_child(iter):
+                        files = os.listdir(filepath)
+                        for f in files:
+                            fpath = os.path.join(filepath, f)
+                            if os.path.isdir(fpath):
+                                dirs.append(fpath)
+                            else:
+                                delete.append(fpath)
+                        while dirs:
+                            path = dirs.pop(0)
+                            delete.append(path)
+                            for f in os.listdir(path):
+                                fpath = os.path.join(path, f)
+                                if os.path.isdir( fpath ):
+                                    dirs.append(fpath)
+                                else:
+                                    delete.append(fpath)
+                        #delete.reverse()
+                        #print delete
+                        for f in delete.__reversed__():
+                            if os.path.isdir(f):
+                                self.disableDirMonitor(f) # skip monitoring
+                                os.removedirs(f)
+                            else:
+                                os.remove(f)
                 elif os.path.isfile(filepath):
                     os.remove(filepath)
                 #self.treeStore.remove(iter)
@@ -324,18 +355,18 @@ class FileBrowser( gtk.VBox ):
     def openFolderSelection(self, menuItem, path):
         # shud open system's file browser... config?/auto?
         if path:
-            iter = self.listStore.get_iter(path)
-            if self.listStore.iter_is_valid(iter):
-                self.listStore.remove(iter)
+            iter = self.treeStore.get_iter(path)
+            if self.treeStore.iter_is_valid(iter):
+                filepath = self.reversePathFromIter(iter)
+                os.popen4(config.file_browser+" "+filepath)
 
     def findSelection(self, menuItem, path):
-        # print self, menuItem, path
         if path:
             iter = self.listStore.get_iter(path)
             if self.listStore.iter_is_valid(iter):
                 self.listStore.remove(iter)
 
-    def reversePath(self, iter):
+    def reversePathFromIter(self, iter):
         fpath = []
         filename = '%s' % self.treeStore.get_value(iter, 1)
         fpath.append(filename)
@@ -353,25 +384,24 @@ class FileBrowser( gtk.VBox ):
                 break
         return filepath
 
-# treeview menus
+# treeStore menus
     def treeMenu(self, treeView, event):
-        if self.headers.__len__() == 2:
-            path = treeView.get_path_at_pos(int(event.x), int(event.y))[0]
-            selectedIter = self.treeStore.get_iter(path)
-            filepath = self.reversePath(selectedIter)
-            if event.button == 3 and os.path.isfile(filepath): # right clik on file
-                self.contextMenu( [{'name':'rename', 'activate':self.renameSelection, 'path':path, 'event':event },
-                    {'name':'delete', 'activate':self.deleteSelection, 'path':path, 'event':event },
-                    {'name':'open containing folder', 'activate':self.openFolderSelection, 'path':path, 'event':event }] )
-            elif event.button == 3 and os.path.isdir(filepath): # right clik on dir
-                self.contextMenu( [ {'name':'rename', 'activate':self.renameSelection, 'path':path, 'event':event },
-                    {'name':'new file', 'activate':self.newFileSelection, 'path':path, 'event':event },
-                    {'name':'new folder', 'activate':self.newFolderSelection, 'path':path, 'event':event },
-                    {'name':'delete folder', 'activate':self.deleteSelection, 'path':path, 'event':event },
-                    {'name':'find in folder', 'activate':self.findSelection, 'path':path, 'event':event } ] )
-            #selectedIter = self.treeStore.get_iter(path)
-            #print path, self.treeStore.get_value(selectedIter, 1), event
-
+        path = treeView.get_path_at_pos(int(event.x), int(event.y))[0]
+        selectedIter = self.treeStore.get_iter(path)
+        filepath = self.reversePathFromIter(selectedIter)
+        if event.button == 3 and os.path.isfile(filepath): # right clik on file
+            self.contextMenu( [{'name':'rename', 'activate':self.renameSelection, 'path':path, 'event':event },
+            {'name':'delete', 'activate':self.deleteSelection, 'path':path, 'event':event },
+            {'name':'open containing folder', 'activate':self.openFolderSelection, 'path':path, 'event':event }] )
+        elif event.button == 3 and os.path.isdir(filepath): # right clik on dir
+            self.contextMenu( [ {'name':'rename', 'activate':self.renameSelection, 'path':path, 'event':event },
+                {'name':'new file', 'activate':self.newFileSelection, 'path':path, 'event':event },
+                {'name':'new folder', 'activate':self.newFolderSelection, 'path':path, 'event':event },
+                {'name':'open filebrowser', 'activate':self.openFolderSelection, 'path':path, 'event':event },
+                {'name':'delete folder', 'activate':self.deleteSelection, 'path':path, 'event':event },
+                {'name':'find in folder', 'activate':self.findSelection, 'path':path, 'event':event } ] )
+        #selectedIter = self.treeStore.get_iter(path)
+        #print path, self.treeStore.get_va0lue(selectedIter, 1), event
 
 # listStore menu
     def closeSelection(self, menuItem, path):
@@ -385,9 +415,6 @@ class FileBrowser( gtk.VBox ):
         # here shud be all open files... might change cuz textview's topbar
         if treeView.get_path_at_pos(int(event.x), int(event.y)):
             path = treeView.get_path_at_pos(int(event.x), int(event.y))[0]
-            for header in self.headers:
-                if path == header:
-                    return False
             if event.button == 3: # right clik
                 self.contextMenu( [{'name':'close', 'activate':self.closeSelection, 'path':path, 'event':event }] )
             #selectedIter = self.listStore.get_iter(path)
@@ -402,35 +429,93 @@ class FileBrowser( gtk.VBox ):
             menuItem.connect('activate', m['activate'], m['path'])
             self.menu.add(menuItem)
         self.menu.popup(None, None, None, m['event'].button, m['event'].time)
+#
+    def makeHeadColumn(self, treeView):
+        column = TreeViewColumn()
+        # create a CellRenderers to render the data
+        rendererpb = CellRendererPixbuf()
+        rendererpb.set_property("visible", False)
+
+        renderertxt = CellRendererText()
+        renderertxt.props.mode = gtk.CELL_RENDERER_MODE_INERT
+        #renderertxt.props.sensitive = False
+        renderertxt.props.weight = pango.WEIGHT_BOLD
+        # add the cells to the column
+        column.pack_start( rendererpb, expand=False )
+        column.pack_start( renderertxt, expand=False )
+
+        column.set_attributes(renderertxt, text=1)
+
+        treeView.selection.set_mode(gtk.SELECTION_NONE)
+
+        treeView.append_column(column)
+
+    def makeListColumn(self, treeView):
+        column = TreeViewColumn()
+        # create a CellRenderers to render the data
+        rendererpb = CellRendererPixbuf()
+        #rendererpb.set_property("follow-state", True)
+        renderertxt = CellRendererText()
+        # add the cells to the column
+        column.pack_start( rendererpb, expand=False )
+        column.pack_start( renderertxt, expand=False )
+        column.set_attributes(renderertxt, text=1)
+        column.set_cell_data_func(renderertxt, self.propertiesText)
+        column.set_cell_data_func(rendererpb, self.propertiesIcon)
+
+        treeView.selection.set_select_function(self.onSelectListStore, treeView.selection)
+
+        treeView.append_column(column)
+
+    def makeTreeColumn(self, treeView):
+        rendererpb = CellRendererPixbuf()
+        renderertxt = CellRendererText()
+        
+        column = gtk.TreeViewColumn()
+        column.pack_start(rendererpb, expand=False)
+        column.pack_start(renderertxt, expand=False)
+
+        column.set_attributes(rendererpb, pixbuf=0)
+        column.set_attributes(renderertxt, text=1)
+
+        treeView.selection.set_select_function(self.onSelectTreeStore)
+        treeView.selection.connect('changed', self.onTreeSelection)
+
+        treeView.append_column(column)
 
     def __init__(self, gtkWindow):
         super( FileBrowser, self ).__init__()
         self.current_directory = os.getcwd()
         self.Window = gtkWindow
 
-        # create liststore
+        # listStore handles open files
         self.listStore = ListStore()
+        # treeStore handles folder trees
         self.treeStore = TreeStore()
 
+        #self.headList = ListStore()
+        self.headTree = ListStore()
+
+        #treeViewHeadList = TreeView(self.headList)
+        #self.headList.append([None, "OPENFILES"])
+
         # create the TreeView using ListStore
-        treeViewList = TreeView(self.listStore)
-        treeViewList.connect( "button-press-event", self.listMenu )
-        treeViewList.set_headers_visible(False)
-        treeViewList.set_enable_search(False)
-        # disable FOCUS selection
-        treeViewList.unset_flags(gtk.CAN_FOCUS)
+        #treeViewList = TreeView(self.listStore)
+        #treeViewList.connect( "button-press-event", self.listMenu )
+        
+        treeViewHeadTree = TreeView(self.headTree)
+        self.headTree.append([None, "FOLDERS"])
+
         # create the TreeView using TreeStore
         treeViewTree = TreeView(self.treeStore)
         treeViewTree.connect( "button-press-event", self.treeMenu )
-        treeViewTree.set_headers_visible(False)
-        treeViewTree.set_enable_search(False)
-        treeViewTree.unset_flags(gtk.CAN_FOCUS)
-        #self.TreeViewTreeSelection = self.TreeViewTree.get_selection()
-        #self.TreeViewTreeSelection.set_mode( gtk.SELECTION_SINGLE)
+
         #self.TreeViewList.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
         #self.TreeViewList.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
-        #self.TreeViewTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
-        #self.TreeViewTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
+        treeViewHeadTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
+        treeViewHeadTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#666666"))
+        treeViewTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
+        treeViewTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
 
         self.delete_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( crossxpm )
 
@@ -445,49 +530,12 @@ class FileBrowser( gtk.VBox ):
                 gtk.STOCK_FILE,
                 gtk.ICON_SIZE_MENU, None)
 
-        # TODO openfiles
-        self.listStore.append([None, "OPENFILES"])
-        self.listStore.append([None, "somefile"])
+        #self.makeHeadColumn(treeViewHeadList)
+        #self.makeListColumn(treeViewList)
+        self.makeHeadColumn(treeViewHeadTree)
+        self.makeTreeColumn(treeViewTree)
 
-        # create a CellRenderers to render the data
-        cellRendererPixbufList = CellRendererPixbuf()
-        cellRendererTextList = CellRendererText()
-        cellRendererTextTree = CellRendererText()
-        cellRendererPixbufTree = CellRendererPixbuf()
-
-        treeViewColumnList = TreeViewColumn()
-
-        # add the cells to the columns - 2 in the first
-        treeViewColumnList.pack_start( cellRendererPixbufList, False )
-        treeViewColumnList.pack_start( cellRendererTextList, False )
-        
-        #treeViewColumnList.set_attributes(cellRendererPixbufList, stock_id=0)
-        treeViewColumnList.set_attributes(cellRendererTextList, text=1)
-        
-        treeViewColumnList.set_cell_data_func(cellRendererTextList, self.propertiesText)
-        treeViewColumnList.set_cell_data_func(cellRendererPixbufList, self.propertiesIcon)
-
-        treeViewList.append_column(treeViewColumnList)
-
-        treeViewColumnTree = gtk.TreeViewColumn()
-        treeViewColumnTree.pack_start( cellRendererPixbufTree, False)
-        treeViewColumnTree.pack_start(cellRendererTextTree, False)
-        #treeViewColumnTree.set_cell_data_func(cellRendererPixbufTree, self.fsicon)
-        treeViewColumnTree.set_attributes(cellRendererPixbufTree, pixbuf=0)
-        treeViewColumnTree.set_attributes(cellRendererTextTree, text=1)
-        #treeViewColumnTree.set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
-        #treeViewColumnTree.set_cell_data_func(cellRendererPixbufTree, self.fsicon)
-        # add columns to treeview
-        treeViewTree.append_column(treeViewColumnTree)
-
-        treeSelectionList = treeViewList.get_selection()
-        #treeSelection.connect( 'changed', callme )
-        treeSelectionList.set_select_function(self.onSelectListStore, treeSelectionList)
-        
-        treeSelectionTree = treeViewTree.get_selection()
-        #treeViewTree.connect( 'row-activated', self.rowactivated )
-        treeSelectionTree.set_select_function(self.onSelectTreeStore, treeSelectionTree)
-        treeSelectionTree.connect('changed', self.onTreeSelection)
-        #treeViewTreeSelection.
-        self.pack_start(treeViewList, False)
+        #self.pack_start(treeViewHeadList, False)
+        #self.pack_start(treeViewList, False)
+        self.pack_start(treeViewHeadTree, False)
         self.pack_start(treeViewTree, True)

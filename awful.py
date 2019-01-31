@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pygtk
-pygtk.require('2.0')
 import gtk, config, glib
 
 from menu import Menubar # imply dialog
@@ -12,15 +10,16 @@ from console import * # imply textview
 from scrolledwindow import *
 from treeview import *
 from notebook import *
-
-TEXT_PANE = 0
-BROWSER_PANE = 1
+from dialog import SaveFileDialog, OpenFileDialog, Message
 
 class AwfulText( gtk.Window ):
+    bufstore = []
 
     def mainQuit( self, gtkWindow ):
+        self.close()
         self.hide_all()
         gtk.main_quit()
+        return False
 
     def updateStatusbar( self, Buffer ):
         count = Buffer.get_char_count()
@@ -36,9 +35,10 @@ class AwfulText( gtk.Window ):
         iter = Buffer.get_iter_at_mark( Buffer.get_insert() )
         row = iter.get_line()
         col = iter.get_line_offset()
-        self.statusbar.push(
-            'Cursor: line %d, column %d; Filesize: %d' % (row, col, count) )
-
+        #self.statusbar.push(
+        #    'Cursor: line %d, column %d; Filesize: %d' % (row, col, count) )
+        self.notebook._fileinfo('%d:%d:%d' % (row, col, count))
+    
     def toggleConsole( self, widget ):
         if widget.active:
             self.console.show()
@@ -47,49 +47,109 @@ class AwfulText( gtk.Window ):
 
     def toggleFileBrowser( self, widget ):
         if widget.active:
-            self.sw[BROWSER_PANE].show()
+            self.treeview.show()
         else:
-            self.sw[BROWSER_PANE].hide()
+            self.treeview.hide()
 
-    def registerMainScreens( self ):
-        # vpanes
-        # 1 => hpanes
-        # 2 => console
-        # hpanes
-        # 1 => file browser
-        # 2 => notebooks
-        self.sw = []
-        for i in range(2):
-            self.sw.append( ScrolledWindow() )
+    def newFile(self, ImageMenuItem):
+        _openFile()
+#
+    def openFile(self, ImageMenuItem):
+        dialog = OpenFileDialog()
+        dialog.set_default_response( gtk.RESPONSE_CANCEL )
+        
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            filename = dialog.get_filename()
+            dialog.destroy()
+            self._openFile(filename)
+        else:
+            dialog.destroy()
 
-        self.sw[TEXT_PANE].add( self.view )
-        self.sw[BROWSER_PANE].add_with_viewport( self.filebrowser )
+    def _openFile(self, filename=None):
+        self.view.set_buffer(Buffer())
+        self.buffer = self.view.get_buffer()
+        # happens when buffer changes...
+        # self.buffer.connect( 'changed', self.updateStatusbar )
+        # on cursor mark set
+        self.buffer.connect( 'mark_set', self.updateTextmark )
+        if filename:
+            self.buffer.showFile(filename)
+            #self.filebrowser.listInsert(filename)
+            self.notebook._filename(os.path.basename(filename))
+            self.notebook._openfilemeta('%d:%d' % (0,self.bufstore.__len__()) )
+            self.set_title(filename+' - AwfulText')
+            self.bufstore.append( self.view.get_buffer() )
+        else:
+            filename = "untitled"
+            #self.filebrowser.listInsert(filename)
+            self.notebook._filename(filename)
+            self.set_title(filename+' - AwfulText')
 
-        vbox = gtk.VBox()
-        vbox.pack_start(Notebook(), False)
-        vbox.pack_start(self.sw[TEXT_PANE])
+    def close(self, ImageMenuItem=None):
+        if self.buffer.get_modified():
+            filename = self.get_data('fullpath')
+            if filename:
+                filename = os.path.basename(filename)
+            else:
+                filename = "untitled"
+            label = "Save changes to '"+ filename +"'?"
+            if Message(self, label):
+                if filename == "untitled":
+                    self.saveAs()
+                else:
+                    self.save()
 
+    def addFolder(self, ImageMenuItem=None):
+        dialog = OpenFolderDialog()
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            filename = dialog.get_filename()
+            dialog.destroy()
+            if filename:
+                self.filebrowser.renderFolder(filename)
+        else:
+            dialog.destroy()
 
-        self.hpanes = gtk.HPaned()
-        self.hpanes.pack1( self.sw[BROWSER_PANE], False, False )
-        self.hpanes.pack2( vbox, True, True )
-        self.hpanes.set_position( 120 )
+    def openFolder(self, ImageMenuItem):
+        self.filebrowser.clearTreeStore()
+        self.addFolder()
 
-        self.vpanes = gtk.VPaned()
-        self.vpanes.pack1( self.hpanes, False, False )
-        self.vpanes.pack2( self.console, False, False )
+    def saveAs(self, ImageMenuItem=None):
+        self.buffer.saveAs()
 
-        container = gtk.VBox()
-        container.pack_start( self.menubar, False, False, 0 )
-        container.pack_start( self.vpanes, True, True, 0 )
-        container.pack_start( self.statusbar, False, False, 0 )
-        self.add( container )
-        self.show_all()
-        self.set_size_request(0,0)
+    def save(self, ImageMenuItem=None):
+        self.buffer.save()
+
+    def registerContainers( self ):
+        self.textview = ScrolledWindow()
+        self.textview.add(self.view)
+        self.treeview = ScrolledWindow()
+        self.treeview.add_with_viewport(self.filebrowser)
+        
+        editor_container = gtk.VBox()
+        editor_container.pack_start(self.notebook, expand=False)
+        editor_container.pack_start(self.textview)
+
+        hpaned_container = gtk.HPaned()
+        hpaned_container.pack1(self.treeview, shrink=False)
+        hpaned_container.pack2(editor_container)
+        hpaned_container.set_position(120)
+
+        vpaned_container = gtk.VPaned()
+        vpaned_container.pack1(hpaned_container, shrink=False)
+        vpaned_container.pack2(self.console)
+
+        glob_container = gtk.VBox()
+        glob_container.pack_start( self.menubar, expand=False, fill=False, padding=0)
+        glob_container.pack_start( vpaned_container)
+        glob_container.pack_start( self.statusbar, expand=False, fill=False, padding=0)
+
+        return glob_container
 
     def __init__(self):
         super( AwfulText, self ).__init__()
-        self.set_title( "Untitled - AwfulText" )
+        self.set_title( "untitled - AwfulText" )
         
         self.accelGroup = gtk.AccelGroup()
         self.add_accel_group( self.accelGroup )
@@ -109,8 +169,13 @@ class AwfulText( gtk.Window ):
         # TEXTEDITOR
         self.buffer = Buffer()
         self.view = View( self.buffer )
+        # get record from presentation buffer...
+        # that buff is mainly used for file presentation.
+        # if buff change it adds a new record
+        self.bufstore.append( self.view.get_buffer() )
+
         # happens when buffer changes...
-        self.buffer.connect( 'changed', self.updateStatusbar )
+        # self.buffer.connect( 'changed', self.updateStatusbar )
         # on cursor mark set
         self.buffer.connect( 'mark_set', self.updateTextmark )
 
@@ -122,6 +187,8 @@ class AwfulText( gtk.Window ):
         # FILEBROWSER
         self.filebrowser = FileBrowser(self)
 
+        self.notebook = Notebook(self)
+
         # MENUBAR
         # Throwing the object tree through...
         # to handle some window properties/attributes.
@@ -130,9 +197,11 @@ class AwfulText( gtk.Window ):
         # CONSOLE
         self.console = Console()
 
-        self.registerMainScreens()
-        # TODO user config validation
+        self.add( self.registerContainers() )
+        self.show_all()
+        self.set_size_request(0,0) # avoid flicker when resizing...
 
+        # TODO user config validation
         if not config.window_menu:
             self.menubar.disable()
 
@@ -140,7 +209,7 @@ class AwfulText( gtk.Window ):
             self.statusbar.disable()
 
         if not config.window_sidepane:
-            self.sw[BROWSER_PANE].hide()
+            self.treeview.hide()
 
         if not config.window_console:
             self.console.hide()

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 progName = "AwfulText"
 progVer = "0.1a"
@@ -6,6 +8,8 @@ progUrl = "https://www.glfs.tk"
 progCop = "(copydrop) by [Awaxx]."
 progCom = "A wondering text editor."
 
+# logging
+logpath = "/tmp/my.log"
 # higlight current line
 highlight_current_line = True
 # show gutter with line numbers
@@ -26,8 +30,12 @@ draw_spaces = 2
 font = "Ubuntu mono 12"
 # Don't show these extension into filebrowser sidepan
 ignore = [ ".pyc", ".o", ".a", ".so", ".rar", ".zip", ".gz", ".xz", ".bz", ".txz", ".tgz" ]
+# show hidden files
+hidden_files = True
 # oredered sidepane, directories first
 dirs_first = True
+# your file browser
+file_browser = "pcmanfm"
 # ======================================================
 # GTK Sourceview
 # Syntax highlight using the nice sourceview's schemes.

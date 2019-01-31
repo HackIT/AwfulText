@@ -1,10 +1,11 @@
-import pygtk
-pygtk.require('2.0')
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import gtk, gobject, pango
 
-leftxpm = [
-    "11 13 3 1",
-    ", c #ffffff",
+# shud play with opacity instead this...
+normal_left = [
+    "11 13 2 1",
     ". c #777776",
     "@ c None",
     "@@@@@@@@@@@",
@@ -22,9 +23,27 @@ leftxpm = [
     "@@@@@@@@@@@"
     ]
 
-rightxpm = [
-    "11 13 3 1",
-    ", c #ffffff",
+clicked_left = [
+    "11 13 2 1",
+    ". c #aaaaaa",
+    "@ c None",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@.@@@",
+    "@@@@@@...@@",
+    "@@@@@....@@",
+    "@@@@....@@@",
+    "@@@@....@@@",
+    "@@@@@....@@",
+    "@@@@@@...@@",
+    "@@@@@@@.@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@"
+    ]
+
+normal_right = [
+    "11 13 2 1",
     ". c #777776",
     "@ c None",
     "@@@@@@@@@@@",
@@ -42,71 +61,170 @@ rightxpm = [
     "@@@@@@@@@@@"
     ]
 
-class Notebook( gtk.VBox ):
-    def left(self, column, cell, liststore, iter):
-        pbleft = gtk.gdk.pixbuf_new_from_xpm_data( leftxpm )
-        cell.props.mode = gtk.CELL_RENDERER_MODE_ACTIVATABLE
-        cell.set_property("visible", True)
-        cell.set_property("pixbuf", pbleft)
-        return False
+clicked_right = [
+    "11 13 2 1",
+    ". c #aaaaaa",
+    "@ c None",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@.@@@@@@@",
+    "@@...@@@@@@",
+    "@@....@@@@@",
+    "@@@....@@@@",
+    "@@@....@@@@",
+    "@@....@@@@@",
+    "@@...@@@@@@",
+    "@@@.@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@"
+    ]
 
-    def right(self, column, cell, liststore, iter):
-        pbright = gtk.gdk.pixbuf_new_from_xpm_data( rightxpm )
-        cell.props.mode = gtk.CELL_RENDERER_MODE_ACTIVATABLE
-        cell.set_property("visible", True)
-        cell.set_property("pixbuf", pbright)
-        return False
+normal_delete = [
+    "11 13 3 1",
+    ", c #ffffff",
+    ". c #777776",
+    "@ c None",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@.@@@.@@@",
+    "@@...@...@@",
+    "@@.......@@",
+    "@@@.....@@@",
+    "@@@.....@@@",
+    "@@.......@@",
+    "@@...@...@@",
+    "@@@.@@@.@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@"
+    ]
 
-    def propertiesText(self, column, cell, liststore, iter):
-        value = liststore[iter]
-        # default cell layout style
-        cell.props.mode = gtk.CELL_RENDERER_MODE_ACTIVATABLE
-        cell.props.sensitive = False
-        cell.props.weight = pango.WEIGHT_BOLD
-        return False
+clicked_delete = [
+    "11 13 3 1",
+    ", c #ffffff",
+    ". c #aaaaaa",
+    "@ c None",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@",
+    "@@@.@@@.@@@",
+    "@@...@...@@",
+    "@@.......@@",
+    "@@@.....@@@",
+    "@@@.....@@@",
+    "@@.......@@",
+    "@@...@...@@",
+    "@@@.@@@.@@@",
+    "@@@@@@@@@@@",
+    "@@@@@@@@@@@"
+    ]
 
-    def onSelectListStore(self, path, listSelection):
-        # disable highlight in liststore headers
-        return False
+class PixbufButton(gtk.EventBox):
+    def __clicked(self, event, gdkevent):
+        if gdkevent.type == gtk.gdk.BUTTON_PRESS:
+            self.image.set_from_pixbuf(self.clicked)
+        else:
+            self.image.set_from_pixbuf(self.normal)
+    
+    def __init__( self, normal, clicked ):
+        super( PixbufButton, self ).__init__()
+        self.normal = gtk.gdk.pixbuf_new_from_xpm_data( normal )
+        self.clicked = gtk.gdk.pixbuf_new_from_xpm_data( clicked )
+        self.image = gtk.Image()
+        self.image.set_from_pixbuf(self.normal)
+        self.connect("button-press-event", self.__clicked)
+        self.connect("button-release-event", self.__clicked)
+        self.add(self.image)
 
-    def __init__(self):
+class LabelButton(gtk.EventBox):
+    def fileMenu(self, label, event):
+        print self
+        print label
+        print event
+
+        #if event.button == 3: # right clik
+        #        self.contextMenu( [{'name':'close', 'activate':self.closeSelection, 'path':path, 'event':event }] )
+            #selectedIter = self.listStore.get_iter(path)
+            #print path, self.listStore.get_value(selectedIter, 1), event
+
+    def contextMenu(self, menuItems):
+        # this way cuz catching menu state to remove menu items... may change...
+        for i in [None, Menu()]: # pretty strange to me but it's okay for now
+            self.menu = i # to have dynamic parameter...
+        for m in menuItems:
+            menuItem = MenuItem(m['name'])
+            menuItem.connect('activate', m['activate'], m['path'])
+            self.menu.add(menuItem)
+        self.menu.popup(None, None, None, m['event'].button, m['event'].time)
+
+    def __clicked(self, event, gdkevent):
+        print self, event, gdkevent
+
+    def __init__(self, str):
+        super( LabelButton, self ).__init__()
+        self.label = gtk.Label()
+        self.label.set_markup('<span foreground="#aaaaaa" weight="bold">'+str+'</span>')
+        self.connect("button-press-event", self.__clicked)
+        self.connect("button-release-event", self.__clicked)
+        self.add(self.label)
+
+class Notebook( gtk.HBox ):
+    _fgcolor = "#aaaaaa"
+    def edited(self, *vars):
+        print self, vars
+    
+    def _filename(self, filename):
+        self.filename.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+filename+'</span>')
+
+    def _fileinfo(self, info):
+        self.fileinfo.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+info+'</span>')
+
+    def _build(self, build):
+        self.build.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+build+'</span>')
+
+    def _openfilemeta(self, meta):
+        self.openfilemeta.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+meta+'</span>')
+
+    def _separator(self):
+        separator = gtk.Label()
+        separator.set_markup('<span foreground="#777776" weight="bold"> | </span>')
+        self.pack_start(separator, expand=False, fill=False, padding=0)
+
+    def __init__( self, gtkWindow ):
         super( Notebook, self ).__init__()
-        liststore = gtk.ListStore(gobject.TYPE_STRING, gtk.gdk.Pixbuf, gtk.gdk.Pixbuf)
-        # create the TreeView using ListStore
-        treeViewList = gtk.TreeView(liststore)
-        #htest.TreeViewList.connect( "button-press-event", htest.listMenu )
-        treeViewList.set_headers_visible(False)
-        treeViewList.set_enable_search(False)
-        treeViewList.unset_flags(gtk.CAN_FOCUS)
-        # TODO openfiles
-        liststore.append([" [ Untitled ] ", None, None])
-        #htest.List.append([None, "somefile"])
-
-        # create a CellRenderers to render the data
-        cellRendererPixbufLeft = gtk.CellRendererPixbuf()
-        cellRendererPixbufRight = gtk.CellRendererPixbuf()
-        cellRendererTextList = gtk.CellRendererText()
-
-        treeViewColumnList = gtk.TreeViewColumn()
-
-        # add the cells to the columns - 2 in the first
-        treeViewColumnList.pack_start( cellRendererTextList, False )
-        treeViewColumnList.pack_start( cellRendererPixbufLeft, False )
-        treeViewColumnList.pack_start( cellRendererPixbufRight, False )
-
+        self.root_window = gtkWindow
+        self.set_size_request( 0, 20 )
+        self.set_spacing(2)
         
-        treeViewColumnList.set_attributes(cellRendererPixbufLeft, pixbuf=1)
-        treeViewColumnList.set_attributes(cellRendererTextList, text=0)
-        treeViewColumnList.set_attributes(cellRendererPixbufRight, pixbuf=2)
+        self.filename = LabelButton('Untitled...')
+        self.openfilemeta = LabelButton('0:0')
+        self.build = LabelButton('build')
+        self.language = LabelButton('lang')
+        self.tabs = LabelButton('spaces:4')
+        self.fileinfo = LabelButton('0:0:0')
+        
+        self.entry = gtk.Entry()
+        self.entry.set_has_frame(False)
+        self.entry.connect('key-press-event', self.edited)
 
-        treeViewColumnList.set_cell_data_func(cellRendererTextList, self.propertiesText)
-        treeViewColumnList.set_cell_data_func(cellRendererPixbufLeft, self.left)
-        treeViewColumnList.set_cell_data_func(cellRendererPixbufRight, self.right)
+        self._separator()
+        self.pack_start(self.fileinfo, expand=False, fill=False, padding=2)
+        self._separator()
+        self.pack_start(self.filename, expand=False, fill=False, padding=2)
+        self.pack_start(PixbufButton(normal_delete, clicked_delete), expand=False, fill=False, padding=0)
+        self._separator()
+        self.pack_start(PixbufButton(normal_left, clicked_left), expand=False, fill=False, padding=0)
+        self.pack_start(self.openfilemeta, expand=False, fill=False, padding=0)
+        self.pack_start(PixbufButton(normal_right, clicked_right), expand=False, fill=False, padding=0)
+        self._separator()
+        self.pack_start(self.entry)
+        self._separator()
+        self.pack_start(self.build, expand=False, fill=False, padding=2)
+        self._separator()
+        self.pack_start(self.tabs, expand=False, fill=False, padding=2)
+        self._separator()
+        self.pack_start(self.language, expand=False, fill=False, padding=2)
+        self._separator()
 
-        treeViewList.append_column(treeViewColumnList)
 
-        treeSelectionList = treeViewList.get_selection()
-        #self.TreeSelection.connect( 'changed', self.callme )
-        treeSelectionList.set_select_function(self.onSelectListStore, treeSelectionList)
-        treeViewList.show_all()
-        self.pack_start(treeViewList, False, False, 0)

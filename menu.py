@@ -1,5 +1,6 @@
-import pygtk
-pygtk.require('2.0')
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import gtk, config
 
 from dialog import About, ColorDial
@@ -34,42 +35,49 @@ class Menubar( gtk.MenuBar ):
                     'stockId':gtk.STOCK_NEW,
                     'label':'New File',
                     'binding':"<Control>N",
-                    'activate': gtkWindow.buffer.newFile
+                    'activate': gtkWindow.newFile
                 },
                 {
                     'type':1,
                     'stockId':gtk.STOCK_OPEN,
                     'label':'Open File',
                     'binding':"<Control>O",
-                    'activate': gtkWindow.buffer.openFile
+                    'activate': gtkWindow.openFile
                 },
                 {
                     'type':1,
                     'stockId':gtk.STOCK_OPEN,
                     'label':'Open Folder',
                     'binding':None,
-                    'activate': gtkWindow.filebrowser.openFolder
+                    'activate': gtkWindow.openFolder
                 },
                 {
                     'type':1,
                     'stockId':gtk.STOCK_ADD,
                     'label':'Add Folder',
                     'binding':None,
-                    'activate': gtkWindow.filebrowser.addFolder
+                    'activate': gtkWindow.addFolder
                 },
                 {
                     'type':1,
                     'stockId':gtk.STOCK_SAVE,
                     'label':'Save',
                     'binding':'<Control>S',
-                    'activate': gtkWindow.buffer.save
+                    'activate': gtkWindow.save
                 },
                 {
                     'type':1,
                     'stockId':gtk.STOCK_SAVE_AS,
                     'label': 'Save As',
                     'binding':'<Shift><Control>S',
-                    'activate': gtkWindow.buffer.saveAs
+                    'activate': gtkWindow.saveAs
+                },
+                {
+                    'type':1,
+                    'stockId':gtk.STOCK_CLOSE,
+                    'label': 'Close file',
+                    'binding':'<Control>W',
+                    'activate': gtkWindow.close
                 },
                 {'type':3 },
                 {

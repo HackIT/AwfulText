@@ -1,7 +1,6 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-import pygtk
-pygtk.require('2.0')
 import gtk
 from scrolledwindow import *
 from textview import *
