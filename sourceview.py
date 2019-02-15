@@ -67,12 +67,12 @@ class Buffer( gtksourceview2.Buffer ):
 #
     def showFile(self, filename):
         if filename:
-            if os.path.isdir(filename):
+            #if os.path.isdir(filename):
             #    self.set_text("")
             #    self.set_modified( False )
-                self.place_cursor( self.get_start_iter() )
-                self.set_data('fullpath', filename)
-                return
+            #    self.place_cursor( self.get_start_iter() )
+            #    self.set_data('fullpath', filename)
+            #    return
             #for i in gtk.gdk.pixbuf_get_formats():
             #    for n in i['extensions']:
             #        if re.search(n+'$', filename):
@@ -131,20 +131,22 @@ class Buffer( gtksourceview2.Buffer ):
             file.write(text)
             file.close()
             self.set_modified(False)
-            print "Saved file: " + self.filename
+            if config.__DEBUG__:
+                sys.stderr.write("Saved file: " + self.filename)
+            # feed visual notebook filename's widget?
         dialog.destroy()
 
     def save(self):
         self.filename = self.get_data('fullpath')
-        if self.filename == "":
-            self.save_as()
-            return
-        print "Saved file: " + self.filename
+        if not self.filename:
+            return self.saveAs()
         text = self.get_text(self.get_start_iter() , self.get_end_iter())
         file = open(self.filename, "w")
         file.write(text)
         file.close()
         self.set_modified(False)
+        if config.__DEBUG__:
+            sys.stderr.write("Saved file: " + self.filename)
 
     def __init__( self ):
         super( Buffer, self ).__init__()
@@ -228,6 +230,9 @@ class View( gtksourceview2.View ):
         self.tabw -= 1
         self.setIndentWidth(tabWidth)
 
+    def bufferSwitch(self, switch):
+        return
+
     def __init__( self, Buffer ):
         super( View, self ).__init__()
         self.tabw = config.tab_width
@@ -252,8 +257,8 @@ class View( gtksourceview2.View ):
         # self.View.set_show_line_marks(True)
         #Buffer.connect( 'changed', Buffer.update_cursor_position, self )
         # self.View.set_mark_category_background("lal", gtk.gdk.color_parse("#ff0000"))
-        self.fontdesc = pango.FontDescription( config.font )
-        self.modify_font( self.fontdesc )
+        # self.fontdesc = pango.FontDescription( config.font )
+        self.modify_font( pango.FontDescription( config.font ) )
 
         #self.connect( "motion-notify-event", dbg )
         self.connect( "button-press-event", dbg )
@@ -264,4 +269,3 @@ class View( gtksourceview2.View ):
 
         # A button has been clicked.
         self.gtkSourceGutter.connect( "cell-activated", dbg )
-

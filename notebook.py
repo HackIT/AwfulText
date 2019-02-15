@@ -1,143 +1,65 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import gtk, gobject, pango
+import gtk, gobject, pango, pixmap
 
-# shud play with opacity instead this...
-normal_left = [
-    "11 13 2 1",
-    ". c #777776",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@.@@@",
-    "@@@@@@...@@",
-    "@@@@@....@@",
-    "@@@@....@@@",
-    "@@@@....@@@",
-    "@@@@@....@@",
-    "@@@@@@...@@",
-    "@@@@@@@.@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-clicked_left = [
-    "11 13 2 1",
-    ". c #aaaaaa",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@.@@@",
-    "@@@@@@...@@",
-    "@@@@@....@@",
-    "@@@@....@@@",
-    "@@@@....@@@",
-    "@@@@@....@@",
-    "@@@@@@...@@",
-    "@@@@@@@.@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-normal_right = [
-    "11 13 2 1",
-    ". c #777776",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@.@@@@@@@",
-    "@@...@@@@@@",
-    "@@....@@@@@",
-    "@@@....@@@@",
-    "@@@....@@@@",
-    "@@....@@@@@",
-    "@@...@@@@@@",
-    "@@@.@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-clicked_right = [
-    "11 13 2 1",
-    ". c #aaaaaa",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@.@@@@@@@",
-    "@@...@@@@@@",
-    "@@....@@@@@",
-    "@@@....@@@@",
-    "@@@....@@@@",
-    "@@....@@@@@",
-    "@@...@@@@@@",
-    "@@@.@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-normal_delete = [
-    "11 13 3 1",
-    ", c #ffffff",
-    ". c #777776",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@.@@@.@@@",
-    "@@...@...@@",
-    "@@.......@@",
-    "@@@.....@@@",
-    "@@@.....@@@",
-    "@@.......@@",
-    "@@...@...@@",
-    "@@@.@@@.@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-clicked_delete = [
-    "11 13 3 1",
-    ", c #ffffff",
-    ". c #aaaaaa",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@.@@@.@@@",
-    "@@...@...@@",
-    "@@.......@@",
-    "@@@.....@@@",
-    "@@@.....@@@",
-    "@@.......@@",
-    "@@...@...@@",
-    "@@@.@@@.@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-class PixbufButton(gtk.EventBox):
-    def __clicked(self, event, gdkevent):
+class CloseButton( gtk.EventBox ):
+    def _clicked( self, event, gdkevent, callback=None ):
         if gdkevent.type == gtk.gdk.BUTTON_PRESS:
-            self.image.set_from_pixbuf(self.clicked)
+            self.image.set_from_pixbuf( self.clicked )
         else:
-            self.image.set_from_pixbuf(self.normal)
-    
-    def __init__( self, normal, clicked ):
-        super( PixbufButton, self ).__init__()
-        self.normal = gtk.gdk.pixbuf_new_from_xpm_data( normal )
-        self.clicked = gtk.gdk.pixbuf_new_from_xpm_data( clicked )
-        self.image = gtk.Image()
-        self.image.set_from_pixbuf(self.normal)
-        self.connect("button-press-event", self.__clicked)
-        self.connect("button-release-event", self.__clicked)
-        self.add(self.image)
+            self.image.set_from_pixbuf( self.normal )
+            if callback:
+                callback()
 
-class LabelButton(gtk.EventBox):
+    def _notify( self, event, gdkevent ):
+        #print self, event, gdkevent, gdkevent.type, self.filemodified
+        if gdkevent.type == gtk.gdk.LEAVE_NOTIFY:
+            if self.filemodified:
+                self.image.set_from_pixbuf( self.modified )
+        else:
+            self.image.set_from_pixbuf( self.normal )
+
+    def change( self, modified ):
+        if type(modified) == bool:
+            self.image.set_from_pixbuf( self.modified )
+            self.filemodified = modified
+
+    def __init__( self, callback=None ):
+        super( CloseButton, self ).__init__()
+        self.normal = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.normal_close )
+        self.clicked = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.clicked_close )
+        self.modified = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.normal_modified )
+        self.filemodified = None
+        self.image = gtk.Image()
+        self.image.set_from_pixbuf( self.normal )
+        self.connect( "enter-notify-event", self._notify )
+        self.connect( "leave-notify-event", self._notify )
+        self.connect( "button-press-event", self._clicked )
+        self.connect( "button-release-event", self._clicked, callback ) # shud happen on release ev...
+        self.add( self.image )
+
+class ArrowButton( gtk.EventBox ):
+    def __clicked( self, event, gdkevent, callback=None ):
+        if gdkevent.type == gtk.gdk.BUTTON_PRESS:
+            self.image.set_from_pixbuf( self.clicked )
+        else:
+            self.image.set_from_pixbuf( self.normal )
+            if callback:
+                callback()
+
+    def __init__( self, normal, clicked=None, callback=None ):
+        super( ArrowButton, self ).__init__()
+        self.normal = gtk.gdk.pixbuf_new_from_xpm_data( normal )
+        if clicked:
+            self.clicked = gtk.gdk.pixbuf_new_from_xpm_data( clicked )
+        self.image = gtk.Image()
+        self.image.set_from_pixbuf( self.normal )
+        self.connect( "button-press-event", self.__clicked )
+        self.connect( "button-release-event", self.__clicked, callback ) # shud happen on release ev...
+        self.add( self.image )
+
+class LabelButton( gtk.EventBox ):
     def fileMenu(self, label, event):
         print self
         print label
@@ -169,13 +91,25 @@ class LabelButton(gtk.EventBox):
         self.connect("button-release-event", self.__clicked)
         self.add(self.label)
 
+class Separator( gtk.EventBox ):
+    def __init__( self ):
+        super( Separator, self ).__init__()
+        self.normal = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.separator )
+        self.image = gtk.Image()
+        self.image.set_from_pixbuf( self.normal )
+        self.add( self.image )
+
 class Notebook( gtk.HBox ):
     _fgcolor = "#aaaaaa"
-    def edited(self, *vars):
+    def edited( self, *vars ):
         print self, vars
     
     def _filename(self, filename):
         self.filename.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+filename+'</span>')
+
+    def _modified(self, buffer):
+        if not self.closeFile.filemodified:
+            self.closeFile.change(True)
 
     def _fileinfo(self, info):
         self.fileinfo.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+info+'</span>')
@@ -187,9 +121,7 @@ class Notebook( gtk.HBox ):
         self.openfilemeta.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+meta+'</span>')
 
     def _separator(self):
-        separator = gtk.Label()
-        separator.set_markup('<span foreground="#777776" weight="bold"> | </span>')
-        self.pack_start(separator, expand=False, fill=False, padding=0)
+        return Separator()
 
     def __init__( self, gtkWindow ):
         super( Notebook, self ).__init__()
@@ -197,7 +129,8 @@ class Notebook( gtk.HBox ):
         self.set_size_request( 0, 20 )
         self.set_spacing(2)
         
-        self.filename = LabelButton('Untitled...')
+        self.filename = LabelButton("Untitled...")
+        self.closeFile = CloseButton(callback=gtkWindow.close)
         self.openfilemeta = LabelButton('0:0')
         self.build = LabelButton('build')
         self.language = LabelButton('lang')
@@ -208,23 +141,41 @@ class Notebook( gtk.HBox ):
         self.entry.set_has_frame(False)
         self.entry.connect('key-press-event', self.edited)
 
-        self._separator()
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        # self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        # line:column:size(byte)
         self.pack_start(self.fileinfo, expand=False, fill=False, padding=2)
-        self._separator()
+
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+
+        # filename
         self.pack_start(self.filename, expand=False, fill=False, padding=2)
-        self.pack_start(PixbufButton(normal_delete, clicked_delete), expand=False, fill=False, padding=0)
-        self._separator()
-        self.pack_start(PixbufButton(normal_left, clicked_left), expand=False, fill=False, padding=0)
+        # close button
+        self.pack_start(self.closeFile, expand=False, fill=False, padding=0)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        
+        # buffer switches
+        self.pack_start(ArrowButton(pixmap.normal_left, pixmap.clicked_left), expand=False, fill=False, padding=0)
         self.pack_start(self.openfilemeta, expand=False, fill=False, padding=0)
-        self.pack_start(PixbufButton(normal_right, clicked_right), expand=False, fill=False, padding=0)
-        self._separator()
-        self.pack_start(self.entry)
-        self._separator()
-        self.pack_start(self.build, expand=False, fill=False, padding=2)
-        self._separator()
-        self.pack_start(self.tabs, expand=False, fill=False, padding=2)
-        self._separator()
-        self.pack_start(self.language, expand=False, fill=False, padding=2)
-        self._separator()
+        self.pack_start(ArrowButton(pixmap.normal_right, pixmap.clicked_right), expand=False, fill=False, padding=0)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        
+        # 
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        #self.pack_start(self.entry)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
 
-
+        self.pack_end(self.build, expand=False, fill=False, padding=2)
+        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_end(self.tabs, expand=False, fill=False, padding=2)
+        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_end(self.language, expand=False, fill=False, padding=2)
+        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_end(self._separator(), expand=False, fill=False, padding=0)

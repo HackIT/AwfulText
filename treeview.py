@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import gtk, os, stat, gobject, pango, re, config, time, gio, glib
+import gtk, os, stat, gobject, pango, re, config, time, gio, glib, pixmap
 from dialog import OpenFolderDialog, NewFileEntry
 
 #gtk.STOCK_FILE gtk.STOCK_DIRECTORY gtk.STOCK_GO_FORWARD
@@ -13,68 +13,6 @@ from dialog import OpenFolderDialog, NewFileEntry
 
 def dbg(*vars):
     print vars
-
-crossxpm = [
-    "11 13 3 1",
-    ", c #ffffff",
-    ". c #777776",
-    "@ c None",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@",
-    "@@@.@@@.@@@",
-    "@@...@...@@",
-    "@@.......@@",
-    "@@@.....@@@",
-    "@@@.....@@@",
-    "@@.......@@",
-    "@@...@...@@",
-    "@@@.@@@.@@@",
-    "@@@@@@@@@@@",
-    "@@@@@@@@@@@"
-    ]
-
-folderxpm = [
-    "15 14 3 1",
-    "  c #ffffff",
-    ". c #000000",
-    "@ c None",
-    "@@@@@@@@@@@@@@@",
-    "@@....@@@@@@@@@",
-    "@.    .@@@@@@@@",
-    "@.     ......@@",
-    "@.           .@",
-    "@.           .@",
-    "@.           .@",
-    "@.           .@",
-    "@.           .@",
-    "@.           .@",
-    "@.           .@",
-    "@.           .@",
-    "@@...........@@",
-    "@@@@@@@@@@@@@@@"
-    ]
-
-filexpm = [
-    "13 14 3 1",
-    "  c #ffffff",
-    ". c #000000",
-    "@ c None",
-    "@@@@@@@@@@@@@",
-    "@@.......@@@@",
-    "@.      ..@@@",
-    "@.      . .@@",
-    "@.      ....@",
-    "@.         .@",
-    "@.         .@",
-    "@.         .@",
-    "@.  . .    .@",
-    "@. .   .   .@",
-    "@.  . .    .@",
-    "@.         .@",
-    "@@.........@@",
-    "@@@@@@@@@@@@@"
-    ]
 
 class TreeView( gtk.TreeView ):
     def __init__(self, treeModel):
@@ -120,10 +58,10 @@ class MenuItem( gtk.MenuItem ):
         super( MenuItem, self ).__init__(name)
         self.show()
 
-class FileBrowser( gtk.VBox ):
+class FolderTree( gtk.VBox ):
     store = [] # treeStore's (iterPath, filePath)
-    openedFolders = [] # to make life easier when looking for file...
-    openedFiles = []
+    openedFolders = [] # to make life easier when looking for folder...
+    openedFiles = [] # to make life easier when looking for file...
     monitoredFolders = [] # glib's monitoring storage... doesn't work without storing it.
     file_monitor_changed_type = None
 
@@ -152,7 +90,7 @@ class FileBrowser( gtk.VBox ):
     def monitorEvent(self, dirMon, fileMon, event, monitorEvent):
         if monitorEvent == gio.FILE_MONITOR_EVENT_CREATED:
             self.file_monitor_changed_type = gio.FILE_MONITOR_EVENT_CREATED
-            # root tree
+            # newfile/folder appeared...
             treepath = self.storeLook(dirMon.get_data("path").get_path())
             if os.path.isdir(fileMon.get_path()):
                 tpath = self.treeStore.append(treepath, [self.folder_pixbuf, os.path.basename(fileMon.get_path())])
@@ -198,7 +136,7 @@ class FileBrowser( gtk.VBox ):
         return True
 
     def onSelectTreeStore(self, path):
-        # disable highlight dirs
+        # disable directories highlight.
         filepath = self.reversePathFromIter(self.treeStore.get_iter(path))
         if os.path.isdir(filepath):
             return False
@@ -238,17 +176,19 @@ class FileBrowser( gtk.VBox ):
                 if re.search('\\'+i+'$', filename):
                     return False
             return True
+        # do not open folder already open.
         if folder and folder in self.openedFolders:
             return
         self.openedFolders.append(folder)
+        # triggers inotify monitoring
         self.monitor(folder)
         files = [f for f in os.listdir(folder)] # if f[0] <> '.'
         nextpath = []
-        if files:
+        if files: # dir lvl 1
             for f in files:
                 fpath = os.path.join(folder, f)
                 if os.path.isdir(fpath):
-                    self.monitor(fpath)
+                    self.monitor(fpath) # triggers inotify monitoring
                     self.openedFolders.append(fpath)
                     tpath = self.treeStore.append(None, [self.folder_pixbuf, f])
                     nextpath.append( (tpath, fpath) )
@@ -256,29 +196,39 @@ class FileBrowser( gtk.VBox ):
                 else:
                     if exclude(f):
                         tpath = self.treeStore.append(None, [self.file_pixbuf, f])
+                        self.openedFiles.append(fpath)
                         self.store.append( (tpath, fpath) )
-            while nextpath:
-                c = nextpath.pop(0)
-                for s in os.listdir(c[1]):
-                    fpath = os.path.join(c[1], s)
+            while nextpath: # loop through remaining dir lvls
+                dir = nextpath.pop(0)
+                for f in os.listdir(dir[1]):
+                    fpath = os.path.join(dir[1], f)
                     if os.path.isdir(fpath):
-                        self.monitor(fpath)
+                        self.monitor(fpath) # triggers inotify monitoring
                         self.openedFolders.append(fpath)
-                        tpath = self.treeStore.append(c[0], [self.folder_pixbuf,s])
+                        tpath = self.treeStore.append(dir[0], [self.folder_pixbuf, f])
                         nextpath.append( (tpath, fpath) )
                         self.store.append( (tpath, fpath) )
                     else:
-                        if exclude(s):
-                            tpath = self.treeStore.append(c[0], [self.file_pixbuf, s])
+                        if exclude(f):
+                            tpath = self.treeStore.append(dir[0], [self.file_pixbuf, f])
+                            self.openedFiles.append(fpath)
                             self.store.append( (tpath, fpath) )
-        print self.openedFolders.__len__(), self.monitoredFolders.__len__(), self.store.__len__()
+
+        print "opened folders:", self.openedFolders.__len__(),\
+            "\n",\
+            "opened files:", self.openedFiles.__len__(),\
+            "\n",\
+            "monitored folders:", self.monitoredFolders.__len__(),\
+            "treestore entries:", self.store.__len__(),\
+            self.openedFiles
 
     def clearTreeStore(self):
         self.treeStore.clear()
+        self.store = [] # <<< WTF?
+        self.openedFiles = []
         while self.openedFolders:
             dirmonitor = self.openedFolders.pop()
             self.disableDirMonitor(dirmonitor)
-            self.store = []
         #self.addFolder()
 
 # menus callback
@@ -386,11 +336,15 @@ class FileBrowser( gtk.VBox ):
 
 # treeStore menus
     def treeMenu(self, treeView, event):
-        path = treeView.get_path_at_pos(int(event.x), int(event.y))[0]
+        if treeView.get_path_at_pos(int(event.x), int(event.y)):
+            path = treeView.get_path_at_pos(int(event.x), int(event.y))[0]
+        else:
+            return
         selectedIter = self.treeStore.get_iter(path)
         filepath = self.reversePathFromIter(selectedIter)
         if event.button == 3 and os.path.isfile(filepath): # right clik on file
-            self.contextMenu( [{'name':'rename', 'activate':self.renameSelection, 'path':path, 'event':event },
+            self.contextMenu( [{'name':'build', 'activate':exit, 'path':path, 'event':event },
+            {'name':'rename', 'activate':self.renameSelection, 'path':path, 'event':event },
             {'name':'delete', 'activate':self.deleteSelection, 'path':path, 'event':event },
             {'name':'open containing folder', 'activate':self.openFolderSelection, 'path':path, 'event':event }] )
         elif event.button == 3 and os.path.isdir(filepath): # right clik on dir
@@ -484,12 +438,12 @@ class FileBrowser( gtk.VBox ):
         treeView.append_column(column)
 
     def __init__(self, gtkWindow):
-        super( FileBrowser, self ).__init__()
+        super( FolderTree, self ).__init__()
         self.current_directory = os.getcwd()
         self.Window = gtkWindow
 
         # listStore handles open files
-        self.listStore = ListStore()
+        #self.listStore = ListStore()
         # treeStore handles folder trees
         self.treeStore = TreeStore()
 
@@ -517,11 +471,11 @@ class FileBrowser( gtk.VBox ):
         treeViewTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
         treeViewTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
 
-        self.delete_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( crossxpm )
+        self.delete_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.normal_close )
 
         if config.icon_theme == False:
-            self.file_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( filexpm )
-            self.folder_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( folderxpm )
+            self.file_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.file )
+            self.folder_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.folder )
         else:
             self.folder_pixbuf = self.TreeViewTree.render_icon(
                 gtk.STOCK_DIRECTORY,

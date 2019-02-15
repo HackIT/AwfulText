@@ -8,6 +8,8 @@ progUrl = "https://www.glfs.tk"
 progCop = "(copydrop) by [Awaxx]."
 progCom = "A wondering text editor."
 
+__DEBUG__ = True
+
 # logging
 logpath = "/tmp/my.log"
 # higlight current line

@@ -108,7 +108,7 @@ class Menubar( gtk.MenuBar ):
                     'type':2,
                     'label':"Show Side pane",
                     'is_active':config.window_sidepane ,
-                    'activate':gtkWindow.toggleFileBrowser
+                    'activate':gtkWindow.toggleFolderTree
                 },
                 {
                     'type':2,

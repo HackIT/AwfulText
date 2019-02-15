@@ -7,3 +7,7 @@ Coding style:
 
  bleh
 
+TODO
+
+- shrink notebook at a certain size...
+- save session on ctrl-Q

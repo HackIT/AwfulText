@@ -41,7 +41,7 @@ def rel(win, event):
 	print win, event
 
 def popup(win, event):
-	print win, event
+	print win, event, "popup"
 	if event.button == 3:
 		menuItem = gtk.MenuItem("test")
 		menuItem.show()
