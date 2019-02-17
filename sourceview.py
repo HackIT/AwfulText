@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import gtk, pango, gtksourceview2, os
+import gtk, pango, gtksourceview2, os, sys
 import config
 from dialog import SaveFileDialog, OpenFileDialog
 
@@ -13,6 +13,10 @@ def dbg(*vars):
         #        var.window.set_cursor( gtk.gdk.Cursor( gtk.gdk.LEFT_PTR ) )
         #    else:
         #        var.window.set_cursor( gtk.gdk.Cursor( gtk.gdk.XTERM ) )
+
+def debug(str):
+    if config.__DEBUG__:
+        sys.stderr.write(str+"\n")
 
 class StyleSchemeManager( gtksourceview2.StyleSchemeManager ):
     def __init__(self):
@@ -54,7 +58,7 @@ class Buffer( gtksourceview2.Buffer ):
                 col += 1
             start.forward_char()
 
-        print 'Line: %d, Column: %d, Chars: %d' % (row, col, nchars)
+        debug( 'Line: %d, Column: %d, Chars: %d' % ( row, col, nchars ) )
 
         #self.feedback = gtk.Label( 'Line: %d, Column: %d, Chars: %d' % (row, col, nchars) )
         #self.statusbar.push(1, 'Line: %d, Column: %d, Chars: %d' % (row, col, nchars))
@@ -65,7 +69,7 @@ class Buffer( gtksourceview2.Buffer ):
         self.set_modified( False )
         self.place_cursor( self.get_start_iter() )
 #
-    def showFile(self, filename):
+    def showFile( self, filename ):
         if filename:
             #if os.path.isdir(filename):
             #    self.set_text("")
@@ -131,8 +135,7 @@ class Buffer( gtksourceview2.Buffer ):
             file.write(text)
             file.close()
             self.set_modified(False)
-            if config.__DEBUG__:
-                sys.stderr.write("Saved file: " + self.filename)
+            debug("Saved file: " + self.filename)
             # feed visual notebook filename's widget?
         dialog.destroy()
 
@@ -145,8 +148,7 @@ class Buffer( gtksourceview2.Buffer ):
         file.write(text)
         file.close()
         self.set_modified(False)
-        if config.__DEBUG__:
-            sys.stderr.write("Saved file: " + self.filename)
+        debug("Saved file: " + self.filename)
 
     def __init__( self ):
         super( Buffer, self ).__init__()

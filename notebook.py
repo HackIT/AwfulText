@@ -22,8 +22,11 @@ class CloseButton( gtk.EventBox ):
 
     def change( self, modified ):
         if type(modified) == bool:
-            self.image.set_from_pixbuf( self.modified )
             self.filemodified = modified
+        if self.filemodified:
+            self.image.set_from_pixbuf( self.modified )
+        else:
+            self.image.set_from_pixbuf( self.normal )
 
     def __init__( self, callback=None ):
         super( CloseButton, self ).__init__()
@@ -130,12 +133,18 @@ class Notebook( gtk.HBox ):
         self.set_spacing(2)
         
         self.filename = LabelButton("Untitled...")
+        self.filename.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">filename</span>')
         self.closeFile = CloseButton(callback=gtkWindow.close)
         self.openfilemeta = LabelButton('0:0')
+        self.openfilemeta.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">file position:index</span>')
         self.build = LabelButton('build')
+        self.build.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">build menu</span>')
         self.language = LabelButton('lang')
+        self.language.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">language menu</span>')
         self.tabs = LabelButton('spaces:4')
+        self.tabs.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">tab menu</span>')
         self.fileinfo = LabelButton('0:0:0')
+        self.fileinfo.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">line:column:size</span>')
         
         self.entry = gtk.Entry()
         self.entry.set_has_frame(False)
