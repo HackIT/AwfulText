@@ -17,7 +17,7 @@ class AwfulText( gtk.Window ):
     bufindex = 1
 
     def mainQuit( self, gtkWindow ):
-        self.close()
+        self.close() # save session here
         self.hide_all()
         gtk.main_quit()
         return False
@@ -69,16 +69,7 @@ class AwfulText( gtk.Window ):
         dialog.destroy()
 
     def _openFile(self, filename=None):
-        self.view.set_buffer(Buffer())
-        self.buffer = self.view.get_buffer()
-        self.bufstore.append( self.buffer )
-        self.bufindex += 1
-        # happens when buffer changes...
-        bufhandler = []
-        bufhandler.append(self.buffer.connect( 'changed', self.notebook._modified ))
-        # on cursor mark set
-        bufhandler.append(self.buffer.connect( 'mark_set', self.updateTextmark ))
-        self.buffer.set_data('handlerIds', bufhandler)
+        self.newBuf()
         if filename:
             self.buffer.showFile(filename)
             #self.filebrowser.listInsert(filename)
@@ -90,17 +81,41 @@ class AwfulText( gtk.Window ):
         self.notebook._filename(filename)
         self.notebook._openfilemeta('%d:%d' % (self.bufindex,self.bufstore.__len__()) )
 
+    def newBuf(self):
+        self.view.set_buffer(Buffer())
+        self.buffer = self.view.get_buffer()
+        self.bufstore.append( self.buffer )
+        self.bufindex += 1
+        # happens when buffer changes...
+        self.addHandler(self.buffer.connect( 'changed', self.notebook._modified ))
+        # on cursor mark set
+        self.addHandler(self.buffer.connect( 'mark_set', self.updateTextmark ))
+
     def closeBuf(self):
         if self.bufstore.__len__() >= 1:
             self.bufstore.pop(self.bufstore.index(self.buffer))
             self.bufindex -= 1
-        if self.bufindex == 0:
-            handlerIds = self.buffer.get_data('handlerIds')
-            print handlerIds
+        handlerIds = self.buffer.get_data('handlerIds')
+        if handlerIds:
             for n in handlerIds:
                 self.buffer.disconnect(n)
-            self._openFile()
-        self.notebook.closeFile.change(False)
+        if self.bufstore.__len__() == 0:
+            self._openFile() # open up a new buff if there is none remaining...
+        else:
+            self.buffer = self.bufstore[self.bufstore.__len__()-1]
+            self.view.set_buffer(self.buffer)
+            print "view buffer change", self.bufstore
+        self.notebook.closeFile.change(self.buffer.get_modified())
+        self.notebook._openfilemeta( '%d:%d' % ( self.bufindex,self.bufstore.__len__() ) )
+
+    def addHandler(self, handler):
+        handlerIds = self.buffer.get_data('handlerIds')
+        if not handlerIds:
+            handlerIds = []
+            handlerIds.append(handler)
+        else:
+            handlerIds.append(handler)
+        self.buffer.set_data('handlerIds', handlerIds)
 
     def close(self, ImageMenuItem=None):
         if self.buffer.get_modified():
@@ -112,14 +127,10 @@ class AwfulText( gtk.Window ):
             label = "Save changes to '"+ filename +"'?"
             if Message(self, label): # needs cancel handling...
                 if filename == "Untitled...":
-                    self.buffer.saveAs()
-                    filename = self.buffer.get_data('fullpath')
-                    if filename:
-                        self.notebook._filename(filename)
-                        self.set_title(filename+' - AwfulText')
+                    self.saveAs()
                 else:
-                    self.buffer.save()
-            self.closeBuf()
+                    self.save()
+        self.closeBuf()
 
     def addFolder(self, ImageMenuItem=None):
         dialog = OpenFolderDialog()
@@ -138,6 +149,10 @@ class AwfulText( gtk.Window ):
 
     def saveAs(self, ImageMenuItem=None):
         self.buffer.saveAs()
+        filename = self.buffer.get_data('fullpath')
+        if filename:
+            self.notebook._filename(filename)
+            self.set_title(filename+' - AwfulText')
 
     def save(self, ImageMenuItem=None):
         self.buffer.save()
@@ -197,8 +212,7 @@ class AwfulText( gtk.Window ):
         # happens when buffer changes...
         # self.buffer.connect( 'changed', self.updateStatusbar )
         # on cursor mark set
-        bufhandler = []
-        bufhandler.append(self.buffer.connect( 'mark_set', self.updateTextmark ))
+        self.addHandler(self.buffer.connect( 'mark_set', self.updateTextmark ))
         # STATUSBAR
         # Throwing the object tree through...
         # to handle some window properties/attributes.
@@ -209,8 +223,7 @@ class AwfulText( gtk.Window ):
 
         self.notebook = Notebook(self)
         self.notebook._openfilemeta('%d:%d' % (self.bufindex,self.bufstore.__len__()) )
-        bufhandler.append(self.buffer.connect( 'changed', self.notebook._modified ))
-        self.buffer.set_data('handlerIds', bufhandler)
+        self.addHandler(self.buffer.connect( 'changed', self.notebook._modified ))
 
         # MENUBAR
         # Throwing the object tree through...
