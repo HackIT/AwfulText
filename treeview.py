@@ -461,15 +461,15 @@ class FolderTree( gtk.VBox ):
         self.headTree.append([None, "FOLDERS"])
 
         # create the TreeView using TreeStore
-        treeViewTree = TreeView(self.treeStore)
-        treeViewTree.connect( "button-press-event", self.treeMenu )
+        self.treeViewTree = TreeView(self.treeStore)
+        self.treeViewTree.connect( "button-press-event", self.treeMenu )
 
         #self.TreeViewList.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
         #self.TreeViewList.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
         treeViewHeadTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
         treeViewHeadTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#666666"))
-        treeViewTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
-        treeViewTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
+        self.treeViewTree.modify_base(gtk.STATE_NORMAL, gtk.gdk.Color("#bbbbbb"))
+        self.treeViewTree.modify_text(gtk.STATE_NORMAL, gtk.gdk.Color("#000000"))
 
         self.delete_pixbuf = gtk.gdk.pixbuf_new_from_xpm_data( pixmap.normal_close )
 
@@ -487,9 +487,9 @@ class FolderTree( gtk.VBox ):
         #self.makeHeadColumn(treeViewHeadList)
         #self.makeListColumn(treeViewList)
         self.makeHeadColumn(treeViewHeadTree)
-        self.makeTreeColumn(treeViewTree)
+        self.makeTreeColumn(self.treeViewTree)
 
         #self.pack_start(treeViewHeadList, False)
         #self.pack_start(treeViewList, False)
         self.pack_start(treeViewHeadTree, False)
-        self.pack_start(treeViewTree, True)
+        self.pack_start(self.treeViewTree, True)

@@ -102,7 +102,7 @@ class Buffer( gtksourceview2.Buffer ):
                 self.set_highlight_syntax(True)
                 self.set_language(language)
             else:
-                print 'No language found for file "%s"' % filename
+                debug( 'No language found for file "%s"' % filename )
                 self.set_highlight_syntax(False)
 
             self.set_text(data)
