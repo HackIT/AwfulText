@@ -39,7 +39,7 @@ class AwfulText( gtk.Window ):
         col = iter.get_line_offset()
         #self.statusbar.push(
         #    'Cursor: line %d, column %d; Filesize: %d' % (row, col, count) )
-        self.notebook._fileinfo('%d:%d:%d' % (row, col, count))
+        self.notebook._fileinfo('%d:%d:%d' % (row+1, col+1, count))
     
     def toggleConsole( self, widget ):
         if widget.active:
