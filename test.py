@@ -9,7 +9,7 @@
 
 import pygtk, gtk, gobject, dialog, re
 
-# you must store menu in order to avoid shitty widget flashes!
+# you must store menu in order to avoid artifacts!
 
 menu = gtk.Menu()
 

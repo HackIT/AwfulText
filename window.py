@@ -16,9 +16,9 @@ class app():
 		window.connect("button-press-event", popup)
 		window.connect("button-release-event", rel)
 		window.add_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK)
-		window.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color("#ffffff"))
 		self.view = gtksourceview2.View()
-		window.add(self.view)
+		window.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color("#ffffff"))
+		#window.add(self.view)
 		window.show_all()
 		
 
