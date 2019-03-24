@@ -89,7 +89,7 @@ class LabelButton( gtk.EventBox ):
     def __init__(self, str):
         super( LabelButton, self ).__init__()
         self.label = gtk.Label()
-        self.label.set_markup('<span foreground="#aaaaaa" weight="bold">'+str+'</span>')
+        self.label.set_markup('<span foreground="#aaaaaa">'+str+'</span>')
         self.connect("button-press-event", self.__clicked)
         self.connect("button-release-event", self.__clicked)
         self.add(self.label)
@@ -108,20 +108,21 @@ class Notebook( gtk.HBox ):
         print self, vars
     
     def _filename(self, filename):
-        self.filename.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+filename+'</span>')
+        self.filename.label.set_markup('<span foreground="'+self._fgcolor+'">'+filename+'</span>')
+        #self.filename.label.set_ellipsize(pango.ELLIPSIZE_END)
 
     def _modified(self, buffer):
         if not self.closeFile.filemodified:
             self.closeFile.change(True)
 
     def _fileinfo(self, info):
-        self.fileinfo.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+info+'</span>')
+        self.fileinfo.label.set_markup('<span foreground="'+self._fgcolor+'">'+info+'</span>')
 
     def _build(self, build):
-        self.build.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+build+'</span>')
+        self.build.label.set_markup('<span foreground="'+self._fgcolor+'">'+build+'</span>')
 
     def _openfilemeta(self, meta):
-        self.openfilemeta.label.set_markup('<span foreground="'+self._fgcolor+'" weight="bold">'+meta+'</span>')
+        self.openfilemeta.label.set_markup('<span foreground="'+self._fgcolor+'">'+meta+'</span>')
 
     def _separator(self):
         return Separator()
@@ -143,7 +144,7 @@ class Notebook( gtk.HBox ):
         self.language.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">language menu</span>')
         self.tabs = LabelButton('spaces:4')
         self.tabs.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">tab menu</span>')
-        self.fileinfo = LabelButton('0:0:0')
+        self.fileinfo = LabelButton('1:1:0')
         self.fileinfo.label.set_tooltip_markup('<span foreground="'+self._fgcolor+'">line:column:size</span>')
         
         self.entry = gtk.Entry()
@@ -177,14 +178,14 @@ class Notebook( gtk.HBox ):
         #self.pack_start(self.entry)
         #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
         #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
-        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
 
-        self.pack_end(self.build, expand=False, fill=False, padding=2)
-        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
-        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
-        self.pack_end(self.tabs, expand=False, fill=False, padding=2)
-        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
-        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
-        self.pack_end(self.language, expand=False, fill=False, padding=2)
-        #self.pack_end(self._separator(), expand=False, fill=False, padding=0)
-        self.pack_end(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self.build, expand=False, fill=False, padding=2)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self.tabs, expand=False, fill=False, padding=2)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self.language, expand=False, fill=False, padding=2)
+        #self.pack_start(self._separator(), expand=False, fill=False, padding=0)
+        self.pack_start(self._separator(), expand=False, fill=False, padding=0)
