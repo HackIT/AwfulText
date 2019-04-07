@@ -5,7 +5,7 @@ import pygtk
 pygtk.require('2.0')
 import gtk, config
 
-def Message(window, label):
+def MessageDialog(window, label):
     d = gtk.MessageDialog(window, 
         gtk.DIALOG_DESTROY_WITH_PARENT,
         gtk.MESSAGE_QUESTION, 
