@@ -4,9 +4,9 @@
 progName = "AwfulText"
 progVer = "0.1a"
 progIcon = "icon.png"
-progUrl = "https://www.glfs.tk"
-progCop = "(copydrop) by [Awaxx]."
-progCom = "A wondering text editor."
+progUrl = "https://62.210.114.224"
+progCop = "License GPLv3 by [Awaxx]."
+progCom = "Will be legendary."
 
 __DEBUG__ = True
 
