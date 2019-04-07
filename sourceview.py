@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import gtk, pango, gtksourceview2, os, sys
+import gtk, pango, gtksourceview2, os, sys, string
 import config
 from dialog import SaveFileDialog, OpenFileDialog
 
@@ -25,6 +25,11 @@ class StyleSchemeManager( gtksourceview2.StyleSchemeManager ):
 class LanguageManager( gtksourceview2.LanguageManager ):
     def __init__(self):
         super( LanguageManager, self ).__init__()
+        languages = [ ( string.capitalize ( i ), i ) \
+          for i in self.get_language_ids () ]
+
+        languages.sort ()
+        self.languages = [ ( 'Default', None ) ] + languages
 
 class Buffer( gtksourceview2.Buffer ):
     def tabsToSpaces(self, menuItem, tabWidth):
