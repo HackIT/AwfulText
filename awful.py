@@ -10,7 +10,7 @@ from console import * # imply textview
 from scrolledwindow import *
 from treeview import *
 from notebook import *
-from dialog import SaveFileDialog, OpenFileDialog, Message
+from dialog import SaveFileDialog, OpenFileDialog, MessageDialog
 
 class AwfulText( gtk.Window ):
     bufstore = []
@@ -140,7 +140,7 @@ class AwfulText( gtk.Window ):
             else:
                 filename = "Untitled..."
             label = "Save changes to '"+ filename +"'?"
-            if Message(self, label): # cancel/no skips file save
+            if MessageDialog(self, label): # cancel/no skips file save
                 if filename == "Untitled...":
                     self.saveAs()
                 else:
