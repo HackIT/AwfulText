@@ -68,3 +68,4 @@ window_console = False
 # futur
 #use theme icon into sidepane
 icon_theme = False
+
