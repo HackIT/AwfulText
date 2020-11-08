@@ -14,3 +14,7 @@ TODO
 
 - need new lights...
 
+###### Enjoy, HackIT.
+
+###### BTC: bc1q5jw0dsgc4x96l0um6vqexp5kq7wthlfvz944uc
+
